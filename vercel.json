@@ -1,19 +1,11 @@
 {
-  "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
-      "src": "backend/api/index.py",
-      "use": "@vercel/python"
+  "functions": {
+    "backend/api/index.py": {
+      "includeFiles": "backend/**"
     }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "backend/api/index.py" },
-    { "src": "/(.*)", "dest": "frontend/$1" }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/backend/api/index.py" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
