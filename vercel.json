@@ -1,11 +1,12 @@
 {
   "functions": {
     "backend/api/index.py": {
-      "includeFiles": "backend/**"
+      "includeFiles": "backend/**",
+      "runtime": "python3.12"
     }
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/backend/api/index.py" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/" }
   ]
 }
