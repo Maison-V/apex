@@ -28,8 +28,12 @@ app = FastAPI(title="APEX Dashboard", version="1.1.0")
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-DATA_DIR = Path("data")
-DATA_DIR.mkdir(exist_ok=True)
+try:
+    DATA_DIR = Path("data")
+    DATA_DIR.mkdir(exist_ok=True)
+except OSError:
+    DATA_DIR = Path("/tmp") / "apex_data"
+    DATA_DIR.mkdir(exist_ok=True)
 
 SWARM_FILE = DATA_DIR / "swarms.json"
 WORKFLOW_FILE = DATA_DIR / "workflows.json"
