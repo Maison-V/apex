@@ -11,11 +11,11 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 SUPABASE_ENABLED = bool(SUPABASE_URL and SUPABASE_KEY)
 
-_http = None
+_http_client: httpx.AsyncClient | None = None
 
 async def _get_client():
     global _http_client
-    if not _http_client:
+    if _http_client is None:
         import httpx
         _http_client = httpx.AsyncClient(
             base_url=f"{SUPABASE_URL}/rest/v1",

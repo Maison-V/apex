@@ -82,6 +82,24 @@ async def get_bbands(symbol: str, interval: str = "1h") -> dict | None:
                 return data["values"][0]
     return None
 
+def _normalize_macd(raw: dict | None) -> dict | None:
+    if not raw:
+        return None
+    return {
+        "macd": float(raw.get("macd", 0)),
+        "macd_signal": float(raw.get("macd_signal", raw.get("signal", 0))),
+        "macd_hist": float(raw.get("macd_histogram", raw.get("histogram", raw.get("macd_hist", 0)))),
+    }
+
+def _normalize_bbands(raw: dict | None) -> dict | None:
+    if not raw:
+        return None
+    return {
+        "upper_band": float(raw.get("upper_band", raw.get("upper", 0))),
+        "middle_band": float(raw.get("middle_band", raw.get("mid", raw.get("middle", 0)))),
+        "lower_band": float(raw.get("lower_band", raw.get("lower", 0))),
+    }
+
 async def get_technicals(symbol: str, interval: str = "1h") -> dict:
     rsi, macd, sma20, sma50, bbands = await asyncio.gather(
         get_rsi(symbol, interval),
@@ -93,10 +111,10 @@ async def get_technicals(symbol: str, interval: str = "1h") -> dict:
     return {
         "symbol": symbol,
         "rsi": rsi,
-        "macd": macd,
+        "macd": _normalize_macd(macd),
         "sma_20": sma20,
         "sma_50": sma50,
-        "bbands": bbands,
+        "bbands": _normalize_bbands(bbands),
     }
 
 async def get_fundamentals(symbol: str) -> dict | None:
