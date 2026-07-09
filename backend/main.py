@@ -63,22 +63,22 @@ async def market_prices():
         await log_market_snapshot(results, [])
     return snapshot
 
-@app.get("/api/market/price/{symbol}")
+@app.get("/api/market/price/{symbol:path}")
 async def market_price(symbol: str):
     q = await get_quote(symbol)
     if not q:
         raise HTTPException(404, "Symbol not found")
     return q
 
-@app.get("/api/market/technicals/{symbol}")
+@app.get("/api/market/technicals/{symbol:path}")
 async def market_technicals(symbol: str, interval: str = "1h"):
     return await get_technicals(symbol, interval)
 
-@app.get("/api/market/time-series/{symbol}")
+@app.get("/api/market/time-series/{symbol:path}")
 async def market_time_series(symbol: str, interval: str = "1h", outputsize: int = 100):
     return await get_time_series(symbol, interval, outputsize)
 
-@app.get("/api/market/fundamentals/{symbol}")
+@app.get("/api/market/fundamentals/{symbol:path}")
 async def market_fundamentals(symbol: str):
     f = await get_fundamentals(symbol)
     if not f:

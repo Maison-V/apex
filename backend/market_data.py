@@ -34,13 +34,20 @@ def _get_ticker(symbol: str) -> yf.Ticker:
 def _run(coro):
     return asyncio.get_event_loop().run_in_executor(None, coro)
 
+def _get_price(info: dict) -> float | None:
+    for key in ("regularMarketPrice", "price", "lastPrice", "open"):
+        v = info.get(key)
+        if v is not None and v != 0:
+            return float(v)
+    return None
+
 async def get_price(symbol: str) -> dict | None:
     try:
         t = _get_ticker(symbol)
         info = await _run(lambda: t.fast_info)
-        price = info.get("regularMarketPrice") or info.get("price") or info.get("lastPrice")
-        if price:
-            return {"symbol": symbol, "price": float(price), "source": "yfinance", "timestamp": datetime.now(timezone.utc).isoformat()}
+        price = _get_price(info)
+        if price is not None:
+            return {"symbol": symbol, "price": price, "source": "yfinance", "timestamp": datetime.now(timezone.utc).isoformat()}
     except Exception:
         pass
     return None
@@ -49,18 +56,18 @@ async def get_quote(symbol: str) -> dict | None:
     try:
         t = _get_ticker(symbol)
         info = await _run(lambda: t.fast_info)
-        price = info.get("regularMarketPrice") or info.get("price") or info.get("lastPrice")
+        price = _get_price(info)
         if price is None:
             return None
-        previous_close = info.get("regularMarketPreviousClose") or info.get("previousClose") or price
-        change = float(price) - float(previous_close)
-        change_pct = (change / float(previous_close)) * 100 if previous_close else 0
+        prev = info.get("previousClose") or info.get("regularMarketPreviousClose") or price
+        change = price - float(prev)
+        change_pct = (change / float(prev)) * 100 if prev else 0
         return {
             "symbol": symbol,
-            "price": float(price),
-            "high": float(info.get("regularMarketDayHigh", 0) or 0),
-            "low": float(info.get("regularMarketDayLow", 0) or 0),
-            "volume": float(info.get("regularMarketVolume", 0) or 0),
+            "price": price,
+            "high": float(info.get("dayHigh", 0) or 0),
+            "low": float(info.get("dayLow", 0) or 0),
+            "volume": float(info.get("lastVolume", 0) or 0),
             "change": round(change, 4),
             "change_pct": round(change_pct, 4),
             "source": "yfinance",
