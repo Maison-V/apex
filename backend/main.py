@@ -355,7 +355,7 @@ async def health():
         "status": "ok",
         "version": "1.1.0",
         "supabase": SUPABASE_ENABLED,
-        "sources": ["twelvedata", "fastforex"],
+        "sources": ["yfinance", "fastforex"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
