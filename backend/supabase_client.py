@@ -6,6 +6,7 @@ Otherwise falls back to file-based storage in main.py.
 import os
 import json
 from datetime import datetime, timezone
+import httpx
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
@@ -16,7 +17,6 @@ _http_client: httpx.AsyncClient | None = None
 async def _get_client():
     global _http_client
     if _http_client is None:
-        import httpx
         _http_client = httpx.AsyncClient(
             base_url=f"{SUPABASE_URL}/rest/v1",
             headers={
