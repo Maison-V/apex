@@ -1,9 +1,10 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { SUPABASE_ENABLED } from '../lib/supabaseClient'
 
 export default function ProtectedRoute({ children }) {
   const { session, loading } = useAuth()
+  const location = useLocation()
 
   if (loading) {
     return (
@@ -16,7 +17,7 @@ export default function ProtectedRoute({ children }) {
   }
 
   if (SUPABASE_ENABLED && !session) {
-    return <Navigate to="/signin" replace />
+    return <Navigate to="/signin" state={{ from: location }} replace />
   }
 
   return children
