@@ -1,11 +1,12 @@
-from pydantic_settings import BaseSettings
+import os
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
-    twelve_data_api_key: str = ""
-    debug: bool = False
-    host: str = "0.0.0.0"
-    port: int = 8000
+load_dotenv()
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+class Settings:
+    twelve_data_api_key: str = os.getenv("TWELVE_DATA_API_KEY", "")
+    debug: bool = os.getenv("DEBUG", "true").lower() == "true"
+    host: str = os.getenv("HOST", "0.0.0.0")
+    port: int = int(os.getenv("PORT", "8000"))
 
 settings = Settings()
