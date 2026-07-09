@@ -51,4 +51,14 @@ export const api = {
   getAlerts: () => fetchJSON('/api/alerts'),
   createAlert: (a) => postJSON('/api/alerts', a),
   deleteAlert: (id) => del(`/api/alerts/${id}`),
+
+  // Forex (FastForex)
+  getForexRates: (from = 'USD') => fetchJSON(`/api/forex/rates?from=${from}`),
+  getForexRate: (from = 'USD', to = 'EUR') => fetchJSON(`/api/forex/rate?from=${from}&to=${to}`),
+  getForexMulti: (from = 'USD', to = 'EUR,GBP,JPY') => fetchJSON(`/api/forex/multi?from=${from}&to=${to}`),
+  forexConvert: (amount = 1, from = 'USD', to = 'EUR') => fetchJSON(`/api/forex/convert?amount=${amount}&from=${from}&to=${to}`),
+  getForexCurrencies: () => fetchJSON('/api/forex/currencies'),
+  getForexPairs: () => fetchJSON('/api/forex/pairs'),
+  getFxQuotes: () => fetchJSON('/api/forex/fx-quotes'),
+  getFxQuote: (pair) => fetchJSON(`/api/forex/fx-quote/${pair}`),
 };

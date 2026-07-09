@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from './api/client'
 import './App.css'
 
-const NAV = ['Dashboard', 'Markets', 'Swarms', 'Workflows', 'Alerts']
+const NAV = ['Dashboard', 'Markets', 'Forex', 'Swarms', 'Workflows', 'Alerts']
 
 function App() {
   const [tab, setTab] = useState('Dashboard')
@@ -25,7 +25,8 @@ function App() {
         {tab === 'Markets' && <Markets />}
         {tab === 'Swarms' && <Swarms />}
         {tab === 'Workflows' && <Workflows />}
-        {tab === 'Alerts' && <Alerts />}
+        {tab === 'Forex' && <Forex />}
+      {tab === 'Alerts' && <Alerts />}
       </main>
     </div>
   )
@@ -303,6 +304,106 @@ function Alerts() {
             <button className="btn small danger" onClick={() => api.deleteAlert(a.id).then(load)}>×</button>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+const FX_PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','USDCAD','NZDUSD','EURJPY','GBPJPY','EURGBP']
+
+function Forex() {
+  const [rates, setRates] = useState(null)
+  const [quotes, setQuotes] = useState(null)
+  const [base, setBase] = useState('USD')
+  const [from, setFrom] = useState('USD')
+  const [to, setTo] = useState('EUR')
+  const [amount, setAmount] = useState(100)
+  const [converted, setConverted] = useState(null)
+  const [targets, setTargets] = useState('EUR,GBP,JPY,CHF,CAD,AUD,NZD')
+
+  useEffect(() => {
+    api.getForexRates(base).then(setRates).catch(console.error)
+    api.getFxQuotes().then(setQuotes).catch(console.error)
+  }, [base])
+
+  const doConvert = async () => {
+    const r = await api.forexConvert(amount, from, to)
+    setConverted(r)
+  }
+
+  const doMulti = async () => {
+    const r = await api.getForexMulti(base, targets)
+    setRates(r)
+  }
+
+  const rateEntries = rates?.rates ? Object.entries(rates.rates).slice(0, 20) : []
+  const quoteList = quotes?.quotes || []
+
+  return (
+    <div className="pane">
+      <div className="pane-header"><h2>Forex (FastForex)</h2><span className="time">1M API calls/month</span></div>
+
+      <div className="split">
+        <div className="split-left">
+          <h3>Exchange Rates</h3>
+          <div className="create-row" style={{marginBottom:'0.75rem'}}>
+            <span>Base:</span>
+            <input className="input" style={{width:80}} value={base} onChange={e => setBase(e.target.value.toUpperCase())} />
+            <span>Targets:</span>
+            <input className="input" style={{flex:1}} value={targets} onChange={e => setTargets(e.target.value)} />
+            <button className="btn small" onClick={doMulti}>Fetch</button>
+          </div>
+          {rates?.updated && <p className="muted" style={{fontSize:'0.75rem',marginBottom:'0.5rem'}}>Updated: {rates.updated}</p>}
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Currency</th><th>Rate</th><th>Inverse</th></tr></thead>
+              <tbody>
+                {rateEntries.map(([cur, rate]) => (
+                  <tr key={cur}>
+                    <td><strong>{cur}</strong></td>
+                    <td>{parseFloat(rate).toFixed(6)}</td>
+                    <td>{(1 / parseFloat(rate)).toFixed(6)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="split-right">
+          <h3>Converter</h3>
+          <div className="create-row" style={{marginBottom:'0.75rem'}}>
+            <input className="input" style={{width:80}} type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} />
+            <input className="input" style={{width:70}} value={from} onChange={e => setFrom(e.target.value.toUpperCase())} />
+            <span>→</span>
+            <input className="input" style={{width:70}} value={to} onChange={e => setTo(e.target.value.toUpperCase())} />
+            <button className="btn small" onClick={doConvert}>Convert</button>
+          </div>
+          {converted && (
+            <div className="swarm-card" style={{marginBottom:'1rem'}}>
+              <div className="pc-symbol">{converted.base || from} → {to}</div>
+              <div className="pc-price">{converted.result?.toFixed?.(6) ?? converted.result?.rate?.toFixed(6)}</div>
+              {converted.amount && <div className="pc-change">{amount} {from} = {converted.result?.toFixed?.(2) || '—'} {to}</div>}
+            </div>
+          )}
+
+          <h3>FX Quotes (Bid/Ask)</h3>
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Pair</th><th>Bid</th><th>Ask</th><th>Spread</th></tr></thead>
+              <tbody>
+                {quoteList.map((q, i) => (
+                  <tr key={i}>
+                    <td><strong>{q.pair || FX_PAIRS[i]}</strong></td>
+                    <td>{parseFloat(q.bid || 0).toFixed(5)}</td>
+                    <td>{parseFloat(q.ask || 0).toFixed(5)}</td>
+                    <td className={q.spread > 0.0005 ? 'red' : 'green'}>{parseFloat(q.spread || (q.ask - q.bid) || 0).toFixed(5)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   )
