@@ -8,3 +8,4 @@ frontend/dist/
 backend/data/
 *.egg-info/
 .DS_Store
+*.log
