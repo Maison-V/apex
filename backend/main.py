@@ -412,9 +412,10 @@ async def health():
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
+frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+
 if __name__ == "__main__":
-    frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
-    if frontend_dist.exists():
-        app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
     import uvicorn
     uvicorn.run("main:app", host=settings.host, port=settings.port, reload=settings.debug)
