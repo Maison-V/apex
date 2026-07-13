@@ -2,7 +2,6 @@
   "buildCommand": "cd frontend && npm ci && npm run build && mkdir -p ../public && cp -r dist/* ../public/",
   "outputDirectory": "public",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
