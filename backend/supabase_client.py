@@ -83,3 +83,21 @@ async def log_forex_snapshot(rates: dict) -> dict | None:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "rates": rates,
     })
+
+async def upsert_tick(symbol: str, bid: float, ask: float, last: float | None = None,
+                      price: float | None = None, volume: float = 0) -> dict | None:
+    return await upsert("live_ticks", {
+        "symbol": symbol,
+        "bid": bid,
+        "ask": ask,
+        "last": last or bid,
+        "price": price or last or bid,
+        "volume": volume,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }, on_conflict="symbol")
+
+async def get_all_ticks() -> dict:
+    if not SUPABASE_ENABLED:
+        return {}
+    rows = await select("live_ticks", limit=100)
+    return {r["symbol"]: r for r in rows}

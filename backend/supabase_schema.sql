@@ -66,12 +66,31 @@ CREATE TABLE IF NOT EXISTS alerts (
 CREATE INDEX idx_alerts_symbol ON alerts (symbol);
 CREATE INDEX idx_alerts_active ON alerts (active);
 
+-- Live ticks from MetaTrader
+CREATE TABLE IF NOT EXISTS live_ticks (
+  symbol TEXT PRIMARY KEY,
+  bid DOUBLE PRECISION,
+  ask DOUBLE PRECISION,
+  last DOUBLE PRECISION,
+  price DOUBLE PRECISION,
+  volume DOUBLE PRECISION,
+  high DOUBLE PRECISION,
+  low DOUBLE PRECISION,
+  change DOUBLE PRECISION,
+  change_pct DOUBLE PRECISION,
+  source TEXT DEFAULT 'metatrader',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_live_ticks_updated ON live_ticks (updated_at DESC);
+
 -- Enable Row Level Security (recommended)
 ALTER TABLE market_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE forex_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE swarms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE live_ticks ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations for anon key (since this is a dashboard with API-key auth)
 CREATE POLICY "Allow all on market_snapshots" ON market_snapshots FOR ALL USING (true);
@@ -79,3 +98,4 @@ CREATE POLICY "Allow all on forex_snapshots" ON forex_snapshots FOR ALL USING (t
 CREATE POLICY "Allow all on swarms" ON swarms FOR ALL USING (true);
 CREATE POLICY "Allow all on workflows" ON workflows FOR ALL USING (true);
 CREATE POLICY "Allow all on alerts" ON alerts FOR ALL USING (true);
+CREATE POLICY "Allow all on live_ticks" ON live_ticks FOR ALL USING (true);

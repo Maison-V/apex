@@ -22,6 +22,7 @@ from fastforex import (
 from supabase_client import (
     SUPABASE_ENABLED, insert as sb_insert, select as sb_select,
     delete as sb_delete, log_market_snapshot, log_forex_snapshot,
+    upsert_tick, get_all_ticks,
 )
 
 app = FastAPI(title="APEX Dashboard", version="1.1.0")
@@ -39,6 +40,7 @@ SWARM_FILE = DATA_DIR / "swarms.json"
 WORKFLOW_FILE = DATA_DIR / "workflows.json"
 ALERTS_FILE = DATA_DIR / "alerts.json"
 HISTORY_FILE = DATA_DIR / "history.json"
+TICKS_FILE = DATA_DIR / "ticks.json"
 
 def _load_json(path):
     if path.exists():
@@ -346,6 +348,57 @@ async def delete_alert(alert_id: str):
         del alerts[alert_id]
         _save_json(ALERTS_FILE, alerts)
     return {"ok": True}
+
+# ─── Live Tick Routes (MetaTrader bridge) ───
+
+@app.post("/api/market/tick")
+async def receive_tick(data: dict):
+    symbol = data.get("symbol", "XAU/USD")
+    bid = data.get("bid")
+    ask = data.get("ask")
+    last = data.get("last", bid)
+    price = data.get("price", last or bid)
+    volume = data.get("volume", 0)
+
+    tick = {
+        "symbol": symbol,
+        "bid": bid,
+        "ask": ask,
+        "last": last,
+        "price": price,
+        "volume": volume,
+        "source": data.get("source", "metatrader"),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    ticks = _load_json(TICKS_FILE)
+    ticks[symbol] = tick
+    _save_json(TICKS_FILE, ticks)
+
+    if SUPABASE_ENABLED:
+        await upsert_tick(symbol, bid, ask, last, price, volume)
+
+    return {"ok": True, "symbol": symbol, "price": price}
+
+@app.get("/api/market/ticks/live")
+async def get_live_ticks():
+    ticks = _load_json(TICKS_FILE)
+    if SUPABASE_ENABLED:
+        try:
+            sb_ticks = await get_all_ticks()
+            for sym, t in sb_ticks.items():
+                ticks[sym] = t
+        except Exception:
+            pass
+    return {"ticks": ticks, "timestamp": datetime.now(timezone.utc).isoformat()}
+
+@app.get("/api/market/tick/{symbol:path}")
+async def get_tick(symbol: str):
+    ticks = _load_json(TICKS_FILE)
+    t = ticks.get(symbol)
+    if not t:
+        raise HTTPException(404, "No tick data for symbol")
+    return t
 
 # ─── Health ───
 

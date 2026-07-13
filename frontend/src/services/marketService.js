@@ -43,3 +43,11 @@ export async function getFundamentals(symbol) {
   try { return await fetchJson(`/api/market/fundamentals/${encodeURIComponent(symbol)}`) }
   catch { return null }
 }
+
+export async function getLiveTicks() {
+  try {
+    return await fetchJson('/api/market/ticks/live')
+  } catch {
+    return { ticks: {} }
+  }
+}

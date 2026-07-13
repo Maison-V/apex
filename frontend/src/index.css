@@ -737,3 +737,35 @@ a {
     transform: scale(1);
   }
 }
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: var(--up);
+  border: 1px solid rgba(76, 175, 130, 0.35);
+  border-radius: var(--radius);
+  padding: 5px 10px;
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--up);
+  animation: live-dot-blink 1s ease-in-out infinite;
+}
+
+@keyframes live-dot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes live-pulse {
+  0%, 100% { border-color: rgba(76, 175, 130, 0.35); }
+  50% { border-color: rgba(76, 175, 130, 0.7); }
+}

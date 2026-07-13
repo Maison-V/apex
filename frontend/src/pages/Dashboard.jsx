@@ -12,6 +12,7 @@ import {
   getTechnicals,
   getMarketMovers,
   getFundamentals,
+  getLiveTicks,
 } from '../services/marketService'
 
 export default function Dashboard() {
@@ -28,6 +29,8 @@ export default function Dashboard() {
 
   const [fundamentals, setFundamentals] = useState(undefined)
   const [loadingFundamentals, setLoadingFundamentals] = useState(false)
+
+  const [liveActive, setLiveActive] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -78,6 +81,58 @@ export default function Dashboard() {
     }
   }, [selectedSymbol, watchlist])
 
+  useEffect(() => {
+    let mounted = true
+    let timeoutId
+
+    async function pollTicks() {
+      if (!mounted) return
+      try {
+        const res = await getLiveTicks()
+        if (!mounted) return
+        const ticks = res.ticks || {}
+        const hasTicks = Object.keys(ticks).length > 0
+        setLiveActive(hasTicks)
+        if (hasTicks) {
+          setQuotes((prev) => {
+            const updated = { ...prev }
+            for (const [sym, t] of Object.entries(ticks)) {
+              const price = t.price ?? t.last ?? t.bid
+              if (price) {
+                const prevQuote = prev[sym]
+                const change = prevQuote?.price != null ? price - prevQuote.price : 0
+                const changePct = prevQuote?.price ? (change / prevQuote.price) * 100 : 0
+                updated[sym] = {
+                  ...(prevQuote || {}),
+                  symbol: sym,
+                  price,
+                  bid: t.bid,
+                  ask: t.ask,
+                  volume: t.volume ?? prevQuote?.volume ?? 0,
+                  change: t.change ?? change,
+                  change_pct: t.change_pct ?? changePct,
+                  low: t.low ?? prevQuote?.low ?? price,
+                  high: t.high ?? prevQuote?.high ?? price,
+                  timestamp: t.timestamp ?? new Date().toISOString(),
+                }
+              }
+            }
+            return updated
+          })
+        }
+      } catch {
+        if (mounted) setLiveActive(false)
+      }
+      if (mounted) timeoutId = setTimeout(pollTicks, 200)
+    }
+
+    pollTicks()
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+    }
+  }, [])
+
   const handleCategoryChange = (category) => {
     setActiveCategory(category)
     const firstSymbol = watchlist[category]?.[0]
@@ -90,7 +145,7 @@ export default function Dashboard() {
     <div className="app-shell">
       <Sidebar />
       <div className="main-col">
-        <TopBar />
+        <TopBar liveActive={liveActive} />
         {!loadingCore && <TickerTape quotes={tickerQuotes} />}
 
         <div className="dash-body">
