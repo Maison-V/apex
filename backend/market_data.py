@@ -137,10 +137,12 @@ async def get_macd(symbol: str, interval: str = "1h") -> dict | None:
         closes = df["Close"].values
         ema12 = pd.Series(closes).ewm(span=12, adjust=False).mean().values
         ema26 = pd.Series(closes).ewm(span=26, adjust=False).mean().values
-        macd_line = ema12[-1] - ema26[-1]
-        signal_line = pd.Series(macd_line).ewm(span=9, adjust=False).mean().values[-1] if len(closes) > 1 else macd_line
+        macd_values = ema12 - ema26
+        macd_line = float(macd_values[-1])
+        signal_values = pd.Series(macd_values).ewm(span=9, adjust=False).mean().values
+        signal_line = float(signal_values[-1])
         hist = macd_line - signal_line
-        return {"macd": round(float(macd_line), 6), "macd_signal": round(float(signal_line), 6), "macd_hist": round(float(hist), 6)}
+        return {"macd": round(macd_line, 6), "macd_signal": round(signal_line, 6), "macd_hist": round(hist, 6)}
     except Exception:
         return None
 

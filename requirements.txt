@@ -2,3 +2,5 @@ fastapi
 httpx
 python-dotenv
 yfinance
+pandas
+numpy
