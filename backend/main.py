@@ -51,50 +51,22 @@ def _load_json(path):
 def _save_json(path, data):
     path.write_text(json.dumps(data, indent=2, default=str))
 
-@app.on_event("startup")
-async def startup():
-    await scraper.start()
-
-@app.on_event("shutdown")
-async def shutdown():
-    await scraper.stop()
-
-# ─── Scraper Control Routes ───
+# ─── Scraper Routes ───
 
 @app.get("/api/scraper/status")
 async def scraper_status():
     return scraper.status
 
-@app.post("/api/scraper/start")
-async def scraper_start():
-    await scraper.start()
-    return {"ok": True, "running": scraper.running}
-
-@app.post("/api/scraper/stop")
-async def scraper_stop():
-    await scraper.stop()
-    return {"ok": True, "running": scraper.running}
-
-@app.post("/api/scraper/restart")
-async def scraper_restart():
-    await scraper.stop()
-    await scraper.start()
-    return {"ok": True, "running": scraper.running}
+@app.post("/api/scraper/refresh")
+async def scraper_refresh():
+    ticks = await scraper._fetch_all()
+    return {"ok": True, "symbols": len(ticks)}
 
 # ─── Twelve Data Market Routes ───
 
 @app.get("/api/market/prices")
 async def market_prices():
-    scraper_ticks = scraper.get_ticks()
-    if scraper_ticks:
-        results = scraper_ticks
-    else:
-        results = {}
-        for category, symbols in WATCHLIST.items():
-            for sym in symbols:
-                q = await get_quote(sym)
-                if q:
-                    results[sym] = q
+    results = await scraper.get_ticks()
     snapshot = {"timestamp": datetime.now(timezone.utc).isoformat(), "prices": results}
     if SUPABASE_ENABLED:
         await log_market_snapshot(results, [])
@@ -413,26 +385,13 @@ async def receive_tick(data: dict):
 
 @app.get("/api/market/ticks/live")
 async def get_live_ticks():
-    scraper_ticks = scraper.get_ticks()
-    if scraper_ticks:
-        return {"ticks": scraper_ticks, "source": "scraper", "timestamp": datetime.now(timezone.utc).isoformat()}
-    ticks = _load_json(TICKS_FILE)
-    if SUPABASE_ENABLED:
-        try:
-            sb_ticks = await get_all_ticks()
-            for sym, t in sb_ticks.items():
-                ticks[sym] = t
-        except Exception:
-            pass
-    return {"ticks": ticks, "source": "file", "timestamp": datetime.now(timezone.utc).isoformat()}
+    ticks = await scraper.get_ticks()
+    return {"ticks": ticks, "source": "scraper", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/api/market/tick/{symbol:path}")
 async def get_tick(symbol: str):
-    scraper_ticks = scraper.get_ticks()
-    t = scraper_ticks.get(symbol)
-    if not t:
-        ticks = _load_json(TICKS_FILE)
-        t = ticks.get(symbol)
+    ticks = await scraper.get_ticks()
+    t = ticks.get(symbol)
     if not t:
         raise HTTPException(404, "No tick data for symbol")
     return t

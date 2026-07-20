@@ -9,59 +9,33 @@ import httpx
 
 from market_data import WATCHLIST, get_quote, _to_yahoo
 
-DATA_DIR = Path(__file__).parent.parent / "data"
-DATA_DIR.mkdir(exist_ok=True)
-TICKS_FILE = DATA_DIR / "ticks.json"
-
-SCRAPE_INTERVAL = 1.0
+CACHE_TTL = 1.0
 
 class ScraperService:
     def __init__(self):
-        self._task: Optional[asyncio.Task] = None
-        self._ticks: dict = {}
-        self._running = False
-        self._last_run: Optional[str] = None
-        self._total_scrapes = 0
+        self._cache: dict = {}
+        self._last_fetch: float = 0
+        self._total_fetches = 0
         self._errors = 0
-
-    @property
-    def running(self) -> bool:
-        return self._running
 
     @property
     def status(self) -> dict:
         return {
-            "running": self._running,
-            "interval_sec": SCRAPE_INTERVAL,
-            "total_scrapes": self._total_scrapes,
+            "mode": "on-demand",
+            "cache_ttl_sec": CACHE_TTL,
+            "total_fetches": self._total_fetches,
             "errors": self._errors,
             "symbols_tracked": sum(len(v) for v in WATCHLIST.values()),
-            "last_run": self._last_run,
+            "cached_since": datetime.fromtimestamp(self._last_fetch, tz=timezone.utc).isoformat() if self._last_fetch > 0 else None,
         }
 
-    async def start(self):
-        if self._running:
-            return
-        self._running = True
-        self._task = asyncio.create_task(self._loop())
+    async def get_ticks(self) -> dict:
+        now = time.monotonic()
+        if now - self._last_fetch < CACHE_TTL and self._cache:
+            return dict(self._cache)
+        return await self._fetch_all()
 
-    async def stop(self):
-        self._running = False
-        if self._task:
-            self._task.cancel()
-            self._task = None
-
-    async def _loop(self):
-        while self._running:
-            try:
-                await self._scrape_all()
-                self._total_scrapes += 1
-                self._last_run = datetime.now(timezone.utc).isoformat()
-            except Exception:
-                self._errors += 1
-            await asyncio.sleep(SCRAPE_INTERVAL)
-
-    async def _scrape_all(self):
+    async def _fetch_all(self) -> dict:
         results = {}
         async with httpx.AsyncClient(timeout=5.0) as client:
             for category, symbols in WATCHLIST.items():
@@ -71,20 +45,19 @@ class ScraperService:
                         if quote:
                             results[symbol] = quote
                         else:
-                            fallback = await self._scrape_fallback(client, symbol)
+                            fallback = await self._scrape_yahoo(client, symbol)
                             if fallback:
                                 results[symbol] = fallback
                     except Exception:
                         self._errors += 1
 
         if results:
-            self._ticks = results
-            try:
-                TICKS_FILE.write_text(json.dumps(results, indent=2, default=str))
-            except OSError:
-                pass
+            self._cache = results
+            self._last_fetch = time.monotonic()
+            self._total_fetches += 1
+        return dict(results)
 
-    async def _scrape_fallback(self, client: httpx.AsyncClient, symbol: str) -> Optional[dict]:
+    async def _scrape_yahoo(self, client: httpx.AsyncClient, symbol: str) -> Optional[dict]:
         yahoo_sym = _to_yahoo(symbol)
         try:
             resp = await client.get(
@@ -129,9 +102,6 @@ class ScraperService:
             }
         except Exception:
             return None
-
-    def get_ticks(self) -> dict:
-        return dict(self._ticks)
 
 
 scraper = ScraperService()
