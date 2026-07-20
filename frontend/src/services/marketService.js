@@ -17,8 +17,13 @@ export async function getWatchlist() {
 
 export async function getAllQuotes() {
   if (USE_MOCK) { await delay(400); return (await import('../data/mockMarketData')).MOCK_QUOTES }
-  const res = await fetchJson('/api/market/prices')
-  return res.prices || {}
+  try {
+    const res = await fetchJson('/api/market/prices')
+    return res.prices || {}
+  } catch {
+    const m = (await import('../data/mockMarketData')).MOCK_QUOTES
+    return m
+  }
 }
 
 export async function getTechnicals(symbol) {

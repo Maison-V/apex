@@ -24,8 +24,9 @@ from supabase_client import (
     delete as sb_delete, log_market_snapshot, log_forex_snapshot,
     upsert_tick, get_all_ticks,
 )
+from scraper_service import scraper
 
-app = FastAPI(title="APEX Dashboard", version="1.1.0")
+app = FastAPI(title="APEX Dashboard", version="1.2.0")
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -50,16 +51,50 @@ def _load_json(path):
 def _save_json(path, data):
     path.write_text(json.dumps(data, indent=2, default=str))
 
+@app.on_event("startup")
+async def startup():
+    await scraper.start()
+
+@app.on_event("shutdown")
+async def shutdown():
+    await scraper.stop()
+
+# ─── Scraper Control Routes ───
+
+@app.get("/api/scraper/status")
+async def scraper_status():
+    return scraper.status
+
+@app.post("/api/scraper/start")
+async def scraper_start():
+    await scraper.start()
+    return {"ok": True, "running": scraper.running}
+
+@app.post("/api/scraper/stop")
+async def scraper_stop():
+    await scraper.stop()
+    return {"ok": True, "running": scraper.running}
+
+@app.post("/api/scraper/restart")
+async def scraper_restart():
+    await scraper.stop()
+    await scraper.start()
+    return {"ok": True, "running": scraper.running}
+
 # ─── Twelve Data Market Routes ───
 
 @app.get("/api/market/prices")
 async def market_prices():
-    results = {}
-    for category, symbols in WATCHLIST.items():
-        for sym in symbols:
-            q = await get_quote(sym)
-            if q:
-                results[sym] = q
+    scraper_ticks = scraper.get_ticks()
+    if scraper_ticks:
+        results = scraper_ticks
+    else:
+        results = {}
+        for category, symbols in WATCHLIST.items():
+            for sym in symbols:
+                q = await get_quote(sym)
+                if q:
+                    results[sym] = q
     snapshot = {"timestamp": datetime.now(timezone.utc).isoformat(), "prices": results}
     if SUPABASE_ENABLED:
         await log_market_snapshot(results, [])
@@ -349,7 +384,7 @@ async def delete_alert(alert_id: str):
         _save_json(ALERTS_FILE, alerts)
     return {"ok": True}
 
-# ─── Live Tick Routes (MetaTrader bridge) ───
+# ─── Live Tick Routes ───
 
 @app.post("/api/market/tick")
 async def receive_tick(data: dict):
@@ -359,7 +394,6 @@ async def receive_tick(data: dict):
     last = data.get("last", bid)
     price = data.get("price", last or bid)
     volume = data.get("volume", 0)
-
     tick = {
         "symbol": symbol,
         "bid": bid,
@@ -370,18 +404,18 @@ async def receive_tick(data: dict):
         "source": data.get("source", "metatrader"),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-
     ticks = _load_json(TICKS_FILE)
     ticks[symbol] = tick
     _save_json(TICKS_FILE, ticks)
-
     if SUPABASE_ENABLED:
         await upsert_tick(symbol, bid, ask, last, price, volume)
-
     return {"ok": True, "symbol": symbol, "price": price}
 
 @app.get("/api/market/ticks/live")
 async def get_live_ticks():
+    scraper_ticks = scraper.get_ticks()
+    if scraper_ticks:
+        return {"ticks": scraper_ticks, "source": "scraper", "timestamp": datetime.now(timezone.utc).isoformat()}
     ticks = _load_json(TICKS_FILE)
     if SUPABASE_ENABLED:
         try:
@@ -390,12 +424,15 @@ async def get_live_ticks():
                 ticks[sym] = t
         except Exception:
             pass
-    return {"ticks": ticks, "timestamp": datetime.now(timezone.utc).isoformat()}
+    return {"ticks": ticks, "source": "file", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/api/market/tick/{symbol:path}")
 async def get_tick(symbol: str):
-    ticks = _load_json(TICKS_FILE)
-    t = ticks.get(symbol)
+    scraper_ticks = scraper.get_ticks()
+    t = scraper_ticks.get(symbol)
+    if not t:
+        ticks = _load_json(TICKS_FILE)
+        t = ticks.get(symbol)
     if not t:
         raise HTTPException(404, "No tick data for symbol")
     return t
@@ -406,9 +443,10 @@ async def get_tick(symbol: str):
 async def health():
     return {
         "status": "ok",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "supabase": SUPABASE_ENABLED,
-        "sources": ["yfinance", "fastforex"],
+        "scraper": scraper.status,
+        "sources": ["yfinance", "fastforex", "scraper"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
