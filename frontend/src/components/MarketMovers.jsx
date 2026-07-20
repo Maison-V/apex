@@ -4,7 +4,7 @@ export default function MarketMovers({ movers, loading }) {
       <h3 className="section-title">Market movers</h3>
       <p className="section-sub">Top gainers, losers and most active symbols across your watchlist</p>
 
-      {loading && <div className="empty-hint">Loading market movers…</div>}
+      {loading && <div className="empty-hint">Loading market movers&hellip;</div>}
 
       {!loading && movers && (
         <div className="movers-columns">

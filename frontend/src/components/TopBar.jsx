@@ -8,9 +8,9 @@ export default function TopBar({ liveActive }) {
     <div className="top-bar">
       <div>
         <h2>Market Dashboard</h2>
-        <div className="subtitle">Prices, technicals, fundamentals &amp; movers across your watchlist</div>
+        <div className="subtitle">Prices &middot; Technicals &middot; Fundamentals &middot; Movers</div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {liveActive && (
           <span className="live-badge">
             <span className="live-dot" />

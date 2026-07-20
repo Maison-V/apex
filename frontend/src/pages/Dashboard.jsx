@@ -45,9 +45,7 @@ export default function Dashboard() {
       if (firstSymbol) setSelectedSymbol(firstSymbol)
     }
     loadCore()
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -57,28 +55,20 @@ export default function Dashboard() {
 
     setLoadingTechnicals(true)
     getTechnicals(selectedSymbol).then((data) => {
-      if (mounted) {
-        setTechnicals(data)
-        setLoadingTechnicals(false)
-      }
+      if (mounted) { setTechnicals(data); setLoadingTechnicals(false) }
     })
 
     const stockSymbols = watchlist.stocks ?? []
     if (stockSymbols.includes(selectedSymbol)) {
       setLoadingFundamentals(true)
       getFundamentals(selectedSymbol).then((data) => {
-        if (mounted) {
-          setFundamentals(data)
-          setLoadingFundamentals(false)
-        }
+        if (mounted) { setFundamentals(data); setLoadingFundamentals(false) }
       })
     } else {
       setFundamentals(undefined)
     }
 
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
   }, [selectedSymbol, watchlist])
 
   useEffect(() => {
@@ -127,10 +117,7 @@ export default function Dashboard() {
     }
 
     pollTicks()
-    return () => {
-      mounted = false
-      clearTimeout(timeoutId)
-    }
+    return () => { mounted = false; clearTimeout(timeoutId) }
   }, [])
 
   const handleCategoryChange = (category) => {
@@ -152,9 +139,7 @@ export default function Dashboard() {
           {loadingCore ? (
             <div className="screen-center" style={{ minHeight: '40vh' }}>
               <div className="loader-glyph" aria-label="Loading dashboard">
-                <span />
-                <span />
-                <span />
+                <span /><span /><span />
               </div>
             </div>
           ) : (

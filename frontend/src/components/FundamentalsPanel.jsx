@@ -11,9 +11,9 @@ export default function FundamentalsPanel({ symbol, fundamentals, loading }) {
 
   return (
     <div className="panel">
-      <p className="panel-title">Fundamentals — {symbol}</p>
+      <p className="panel-title">Fundamentals &mdash; {symbol}</p>
 
-      {loading && <div className="empty-hint">Loading fundamentals…</div>}
+      {loading && <div className="empty-hint">Loading fundamentals&hellip;</div>}
 
       {!loading && !isEquity && (
         <div className="empty-hint">Fundamentals apply to equities. Select a stock symbol to view.</div>
@@ -56,7 +56,7 @@ export default function FundamentalsPanel({ symbol, fundamentals, loading }) {
           <div className="stat-row">
             <span className="label">52-week range</span>
             <span className="value">
-              {fundamentals.week_52_low} – {fundamentals.week_52_high}
+              {fundamentals.week_52_low} &ndash; {fundamentals.week_52_high}
             </span>
           </div>
         </>

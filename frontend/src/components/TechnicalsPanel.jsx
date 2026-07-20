@@ -7,9 +7,9 @@ function rsiReading(rsi) {
 export default function TechnicalsPanel({ symbol, technicals, loading }) {
   return (
     <div className="panel">
-      <p className="panel-title">Technical analysis — {symbol}</p>
+      <p className="panel-title">Technical analysis &mdash; {symbol}</p>
 
-      {loading && <div className="empty-hint">Loading technicals…</div>}
+      {loading && <div className="empty-hint">Loading technicals&hellip;</div>}
       {!loading && !technicals && <div className="empty-hint">No technical data for this symbol.</div>}
 
       {!loading && technicals && (
@@ -17,7 +17,7 @@ export default function TechnicalsPanel({ symbol, technicals, loading }) {
           <div className="stat-row">
             <span className="label">RSI (14)</span>
             <span className="value">
-              {technicals.rsi?.toFixed(1)} · {rsiReading(technicals.rsi)}
+              {technicals.rsi?.toFixed(1)} &middot; {rsiReading(technicals.rsi)}
             </span>
           </div>
           <div className="gauge-track">

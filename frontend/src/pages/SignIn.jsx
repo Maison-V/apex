@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import BrandMark from '../components/BrandMark'
-import ConstellationField from '../components/ConstellationField'
+import GridBackground from '../components/GridBackground'
 import { useAuth } from '../context/AuthContext'
 import { SUPABASE_ENABLED } from '../lib/supabaseClient'
 
@@ -36,7 +36,7 @@ export default function SignIn() {
 
   return (
     <div className="auth-shell">
-      <ConstellationField />
+      <GridBackground />
       <div className="auth-card">
         <div className="auth-header">
           <BrandMark />
@@ -71,7 +71,7 @@ export default function SignIn() {
               required
             />
           </div>
-          <button className="btn-gold" type="submit" disabled={submitting}>
+          <button className="btn-accent" type="submit" disabled={submitting}>
             {submitting ? 'Signing in\u2026' : 'Sign in'}
           </button>
         </form>

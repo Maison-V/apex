@@ -45,8 +45,7 @@ export default function WatchlistGrid({ watchlist, quotes, activeCategory, onCat
               <div className="market-card-top">
                 <span className="symbol">{symbol}</span>
                 <span className={`change-pill ${isUp ? 'up' : 'down'}`}>
-                  {isUp ? '+' : ''}
-                  {q.change_pct.toFixed(2)}%
+                  {isUp ? '+' : ''}{q.change_pct.toFixed(2)}%
                 </span>
               </div>
               <div className="price">{q.price.toLocaleString(undefined, { maximumFractionDigits: 4 })}</div>
