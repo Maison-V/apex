@@ -1,4 +1,3 @@
-import os
 import random
 from datetime import datetime, timezone
 
@@ -9,48 +8,24 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="APEX Dashboard API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-TWELVE_DATA_KEY = os.environ.get("TWELVE_DATA_API_KEY", "")
 
 WATCHLIST = {
     "indices": ["^DJI", "^NDX"],
-    "forex": ["XAU/USD", "EUR/USD", "GBP/USD"],
+    "forex": ["EUR/USD", "GBP/USD"],
+    "commodities": ["GC=F"],
     "crypto": ["BTC/USD", "ETH/USD", "SOL/USD", "BNB/USD"],
     "stocks": ["AAPL", "MSFT", "TSLA", "NVDA", "SPY"],
 }
 
-LIVE_SYMBOLS = {"^DJI", "^NDX", "XAU/USD"}
+LIVE_SYMBOLS = {"^DJI", "^NDX", "GC=F"}
 
 BASE_PRICES = {
     "^DJI": 52000, "^NDX": 28600,
-    "XAU/USD": 2350, "EUR/USD": 1.09, "GBP/USD": 1.27,
+    "GC=F": 4070, "EUR/USD": 1.09, "GBP/USD": 1.27,
     "BTC/USD": 68000, "ETH/USD": 3500, "SOL/USD": 145, "BNB/USD": 580,
     "AAPL": 210, "MSFT": 430, "TSLA": 260, "NVDA": 820, "SPY": 550,
 }
 
-async def _fetch_twelvedata(symbol: str) -> dict | None:
-    if not TWELVE_DATA_KEY:
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            resp = await c.get("https://api.twelvedata.com/quote", params={"symbol": symbol, "apikey": TWELVE_DATA_KEY})
-            if resp.status_code != 200:
-                return None
-            d = resp.json()
-            if d.get("status") == "error":
-                return None
-            price = d.get("close") or d.get("price")
-            if price is None:
-                return None
-            return {
-                "symbol": symbol, "price": float(price),
-                "high": _safe_float(d.get("high")), "low": _safe_float(d.get("low")),
-                "change": _safe_float(d.get("change")),
-                "change_pct": _safe_float(d.get("percent_change")),
-                "volume": int(float(d.get("volume", 0) or 0)),
-                "source": "twelvedata", "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
-    except Exception:
-        return None
 
 async def _fetch_yahoo_index(symbol: str) -> dict | None:
     try:
@@ -127,9 +102,7 @@ def _mock_tick(sym: str, now: str):
     }
 
 async def _fetch_live(sym: str) -> dict | None:
-    if sym == "XAU/USD":
-        return await _fetch_twelvedata("XAU/USD")
-    if sym in ("^DJI", "^NDX"):
+    if sym in ("^DJI", "^NDX", "GC=F"):
         return await _fetch_yahoo_index(sym)
     return None
 
@@ -150,7 +123,7 @@ async def health():
     return {
         "status": "ok", "version": "1.4.0",
         "live_symbols": list(LIVE_SYMBOLS),
-        "twelvedata": bool(TWELVE_DATA_KEY),
+        "data_source": "yahoo",
     }
 
 @app.get("/api/market/watchlist")
@@ -160,7 +133,7 @@ async def watchlist():
 @app.get("/api/scraper/status")
 async def scraper_status():
     return {
-        "mode": "live", "twelvedata": bool(TWELVE_DATA_KEY),
+        "mode": "live", "source": "yahoo",
         "symbols_tracked": sum(len(v) for v in WATCHLIST.values()),
     }
 

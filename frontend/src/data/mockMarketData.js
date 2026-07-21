@@ -5,7 +5,8 @@
 
 export const WATCHLIST = {
   crypto: ['BTC/USD', 'ETH/USD', 'SOL/USD', 'BNB/USD'],
-  forex: ['EUR/USD', 'GBP/USD', 'XAU/USD'],
+  forex: ['EUR/USD', 'GBP/USD'],
+  commodities: ['GC=F'],
   stocks: ['AAPL', 'MSFT', 'TSLA', 'NVDA', 'SPY'],
 }
 
@@ -31,7 +32,7 @@ export const MOCK_QUOTES = {
   'BNB/USD': quote('BNB/USD', 612.4, 618.9, 601.2, 44210, 3.1, 0.51),
   'EUR/USD': quote('EUR/USD', 1.0842, 1.0861, 1.0819, 0, 0.0012, 0.11),
   'GBP/USD': quote('GBP/USD', 1.2718, 1.2745, 1.2688, 0, -0.0021, -0.16),
-  'XAU/USD': quote('XAU/USD', 2384.6, 2398.2, 2361.4, 0, 12.4, 0.52),
+  'GC=F': quote('GC=F', 4073.8, 4088.4, 4003.3, 0, 12.4, 0.52),
   AAPL: quote('AAPL', 221.34, 223.8, 218.9, 51230000, 1.86, 0.85),
   MSFT: quote('MSFT', 448.72, 452.1, 444.3, 21850000, -2.14, -0.47),
   TSLA: quote('TSLA', 261.09, 268.4, 255.2, 88410000, 8.92, 3.54),
@@ -59,7 +60,7 @@ export const MOCK_TECHNICALS = {
   'BNB/USD': technicals('BNB/USD', 52.9, macd(1.2, 0.9, 0.3), 605.1, 598.4, bb(624, 605, 586)),
   'EUR/USD': technicals('EUR/USD', 49.6, macd(0.0008, 0.0006, 0.0002), 1.083, 1.081, bb(1.089, 1.083, 1.077)),
   'GBP/USD': technicals('GBP/USD', 38.7, macd(-0.0011, -0.0005, -0.0006), 1.276, 1.279, bb(1.284, 1.276, 1.268)),
-  'XAU/USD': technicals('XAU/USD', 63.5, macd(9.8, 7.2, 2.6), 2350.4, 2298.6, bb(2410, 2350, 2290)),
+  'GC=F': technicals('GC=F', 63.5, macd(9.8, 7.2, 2.6), 4050.4, 3998.6, bb(4110, 4050, 3990)),
   AAPL: technicals('AAPL', 55.8, macd(1.9, 1.4, 0.5), 217.6, 211.3, bb(226, 217.6, 209.2)),
   MSFT: technicals('MSFT', 47.3, macd(-0.8, -0.3, -0.5), 451.2, 446.8, bb(459, 451.2, 443.4)),
   TSLA: technicals('TSLA', 66.9, macd(4.6, 2.8, 1.8), 248.9, 232.1, bb(272, 248.9, 225.8)),
