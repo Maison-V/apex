@@ -19,6 +19,7 @@ import { derivService } from '../services/derivService'
 export default function Dashboard() {
   const [watchlist, setWatchlist] = useState({})
   const [quotes, setQuotes] = useState({})
+  const [derivQuotes, setDerivQuotes] = useState({})
   const [movers, setMovers] = useState(null)
   const [loadingCore, setLoadingCore] = useState(true)
 
@@ -51,6 +52,8 @@ export default function Dashboard() {
       if (syntheticSymbols.length > 0) {
         await derivService.init()
         derivService.connect(syntheticSymbols)
+      } else {
+        setDerivQuotes({})
       }
     }
     loadCore()
@@ -98,23 +101,22 @@ export default function Dashboard() {
             for (const [sym, t] of Object.entries(ticks)) {
               if (derivSymbolsRef.current.has(sym)) continue
               const price = t.price ?? t.last ?? t.bid
-              if (price) {
-                const prevQuote = prev[sym]
-                const change = prevQuote?.price != null ? price - prevQuote.price : 0
-                const changePct = prevQuote?.price ? (change / prevQuote.price) * 100 : 0
-                updated[sym] = {
-                  ...(prevQuote || {}),
-                  symbol: sym,
-                  price,
-                  bid: t.bid,
-                  ask: t.ask,
-                  volume: t.volume ?? prevQuote?.volume ?? 0,
-                  change: t.change ?? change,
-                  change_pct: t.change_pct ?? changePct,
-                  low: t.low ?? prevQuote?.low ?? price,
-                  high: t.high ?? prevQuote?.high ?? price,
-                  timestamp: t.timestamp ?? new Date().toISOString(),
-                }
+              if (!price) continue
+              const prevQuote = prev[sym]
+              const change = prevQuote?.price != null ? price - prevQuote.price : 0
+              const changePct = prevQuote?.price ? (change / prevQuote.price) * 100 : 0
+              updated[sym] = {
+                ...(prevQuote || {}),
+                symbol: sym,
+                price,
+                bid: t.bid,
+                ask: t.ask,
+                volume: t.volume ?? prevQuote?.volume ?? 0,
+                change: t.change ?? change,
+                change_pct: t.change_pct ?? changePct,
+                low: t.low ?? prevQuote?.low ?? price,
+                high: t.high ?? prevQuote?.high ?? price,
+                timestamp: t.timestamp ?? new Date().toISOString(),
               }
             }
             return updated
@@ -132,7 +134,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const unsub = derivService.subscribe((symbol, price, timestamp) => {
-      setQuotes((prev) => {
+      setDerivQuotes((prev) => {
         const wasReal = prev[symbol]?.source === 'deriv'
         const prevPrice = prev[symbol]?.price
         const change = wasReal && prevPrice != null ? price - prevPrice : 0
@@ -163,14 +165,14 @@ export default function Dashboard() {
     if (firstSymbol) setSelectedSymbol(firstSymbol)
   }
 
-  const tickerQuotes = useMemo(() => quotes, [quotes])
+  const mergedQuotes = useMemo(() => ({ ...quotes, ...derivQuotes }), [quotes, derivQuotes])
 
   return (
     <div className="app-shell">
       <Sidebar />
       <div className="main-col">
         <TopBar liveActive={liveActive} />
-        {!loadingCore && <TickerTape quotes={tickerQuotes} />}
+        {!loadingCore && <TickerTape quotes={mergedQuotes} />}
 
         <div className="dash-body">
           {loadingCore ? (
@@ -183,7 +185,7 @@ export default function Dashboard() {
             <>
               <WatchlistGrid
                 watchlist={watchlist}
-                quotes={quotes}
+                quotes={mergedQuotes}
                 activeCategory={activeCategory}
                 onCategoryChange={handleCategoryChange}
                 selectedSymbol={selectedSymbol}
