@@ -37,13 +37,14 @@ async def market_prices():
             base = {"BTC/USD": 68000, "ETH/USD": 3500, "SOL/USD": 145, "BNB/USD": 580,
                      "EUR/USD": 1.09, "GBP/USD": 1.27, "XAU/USD": 2350,
                      "AAPL": 210, "MSFT": 430, "TSLA": 260, "NVDA": 820, "SPY": 550}.get(sym, 100)
+            price = round(base + random.uniform(-base*0.01, base*0.01), 2)
+            low = round(price - random.uniform(0, price*0.02), 2)
+            high = round(price + random.uniform(0, price*0.02), 2)
             prices[sym] = {
-                "symbol": sym,
-                "price": round(base + random.uniform(-base*0.01, base*0.01), 2),
+                "symbol": sym, "price": price, "low": low, "high": high,
                 "change": round(random.uniform(-3, 3), 2),
                 "change_pct": round(random.uniform(-1.5, 1.5), 2),
-                "source": "api",
-                "timestamp": now,
+                "source": "api", "timestamp": now,
             }
     return {"timestamp": now, "prices": prices}
 
@@ -58,12 +59,13 @@ async def get_live_ticks():
             base = {"BTC/USD": 68000, "ETH/USD": 3500, "SOL/USD": 145, "BNB/USD": 580,
                      "EUR/USD": 1.09, "GBP/USD": 1.27, "XAU/USD": 2350,
                      "AAPL": 210, "MSFT": 430, "TSLA": 260, "NVDA": 820, "SPY": 550}.get(sym, 100)
+            price = round(base + random.uniform(-base*0.005, base*0.005), 2)
             ticks[sym] = {
-                "symbol": sym,
-                "price": round(base + random.uniform(-base*0.005, base*0.005), 2),
+                "symbol": sym, "price": price,
+                "low": round(price - random.uniform(0, price*0.01), 2),
+                "high": round(price + random.uniform(0, price*0.01), 2),
                 "volume": int(random.uniform(1000, 50000)),
-                "source": "api",
-                "timestamp": now,
+                "source": "api", "timestamp": now,
             }
     return {"ticks": ticks, "source": "api", "timestamp": now}
 
@@ -84,8 +86,11 @@ async def market_scan():
             base = {"BTC/USD": 68000, "ETH/USD": 3500, "SOL/USD": 145, "BNB/USD": 580,
                      "EUR/USD": 1.09, "GBP/USD": 1.27, "XAU/USD": 2350,
                      "AAPL": 210, "MSFT": 430, "TSLA": 260, "NVDA": 820, "SPY": 550}.get(sym, 100)
+            price = round(base + random.uniform(-base*0.01, base*0.01), 2)
             prices[sym] = {
-                "symbol": sym, "price": round(base + random.uniform(-base*0.01, base*0.01), 2),
+                "symbol": sym, "price": price,
+                "low": round(price - random.uniform(0, price*0.02), 2),
+                "high": round(price + random.uniform(0, price*0.02), 2),
                 "change": round(random.uniform(-3, 3), 2),
                 "change_pct": round(random.uniform(-1.5, 1.5), 2),
                 "volume": int(random.uniform(1000, 50000)), "source": "api", "timestamp": now,
