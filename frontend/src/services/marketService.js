@@ -1,5 +1,3 @@
-import { WATCHLIST } from '../data/mockMarketData'
-
 const API_BASE = ''
 const USE_MOCK = false
 
@@ -12,7 +10,12 @@ async function fetchJson(path) {
 }
 
 export async function getWatchlist() {
-  return WATCHLIST
+  if (USE_MOCK) return (await import('../data/mockMarketData')).WATCHLIST
+  try {
+    return await fetchJson('/api/market/watchlist')
+  } catch {
+    return (await import('../data/mockMarketData')).WATCHLIST
+  }
 }
 
 export async function getAllQuotes() {
