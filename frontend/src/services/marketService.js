@@ -33,13 +33,18 @@ export async function getTechnicals(symbol) {
 
 export async function getMarketMovers() {
   if (USE_MOCK) { await delay(300); return (await import('../data/mockMarketData')).MOCK_MOVERS }
-  const res = await fetchJson('/api/market/scan')
-  const prices = Object.values(res.prices || {}).filter(Boolean)
-  const sorted = [...prices].sort((a, b) => b.change_pct - a.change_pct)
-  return {
-    gainers: sorted.slice(0, 5).map((q) => ({ symbol: q.symbol, percent_change: q.change_pct })),
-    losers: sorted.slice(-5).reverse().map((q) => ({ symbol: q.symbol, percent_change: q.change_pct })),
-    most_active: [...prices].sort((a, b) => (b.volume || 0) - (a.volume || 0)).slice(0, 5).map((q) => ({ symbol: q.symbol, volume: q.volume || 0 })),
+  try {
+    const res = await fetchJson('/api/market/scan')
+    const prices = Object.values(res.prices || {}).filter(Boolean)
+    const sorted = [...prices].sort((a, b) => b.change_pct - a.change_pct)
+    return {
+      gainers: sorted.slice(0, 5).map((q) => ({ symbol: q.symbol, percent_change: q.change_pct })),
+      losers: sorted.slice(-5).reverse().map((q) => ({ symbol: q.symbol, percent_change: q.change_pct })),
+      most_active: [...prices].sort((a, b) => (b.volume || 0) - (a.volume || 0)).slice(0, 5).map((q) => ({ symbol: q.symbol, volume: q.volume || 0 })),
+    }
+  } catch {
+    const m = (await import('../data/mockMarketData')).MOCK_MOVERS
+    return m
   }
 }
 
