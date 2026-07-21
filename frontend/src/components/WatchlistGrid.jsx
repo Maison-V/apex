@@ -3,6 +3,7 @@ const CATEGORY_LABELS = {
   forex: 'Forex',
   stocks: 'Equities',
   commodities: 'Commodities',
+  synthetic: 'Synthetic',
 }
 
 export default function WatchlistGrid({ watchlist, quotes, activeCategory, onCategoryChange, selectedSymbol, onSelectSymbol }) {
@@ -12,7 +13,7 @@ export default function WatchlistGrid({ watchlist, quotes, activeCategory, onCat
   return (
     <div className="section-block">
       <h3 className="section-title">Watchlist</h3>
-      <p className="section-sub">Live-style quotes across crypto, forex, commodities and equities</p>
+      <p className="section-sub">Live-style quotes across crypto, forex, commodities, synthetics and equities</p>
 
       <div className="category-tabs">
         {categories.map((cat) => (

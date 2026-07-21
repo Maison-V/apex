@@ -1,29 +1,44 @@
+import asyncio
+import json
+import os
 import random
 from datetime import datetime, timezone
 
 import httpx
+import websockets
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="APEX Dashboard API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+DERIV_APP_ID = os.environ.get("DERIV_APP_ID", "1089")
+DERIV_WS_URI = f"wss://ws.deriv.com/websockets/v3?app_id={DERIV_APP_ID}"
 
 WATCHLIST = {
     "indices": ["^DJI", "^NDX"],
     "forex": ["EUR/USD", "GBP/USD"],
     "commodities": ["GC=F"],
+    "synthetic": ["R_75", "R_100", "BOOM500", "CRASH500"],
     "crypto": ["BTC/USD", "ETH/USD", "SOL/USD", "BNB/USD"],
     "stocks": ["AAPL", "MSFT", "TSLA", "NVDA", "SPY"],
 }
 
-LIVE_SYMBOLS = {"^DJI", "^NDX", "GC=F"}
+LIVE_SYMBOLS = {"^DJI", "^NDX", "GC=F", "R_75", "R_100", "BOOM500", "CRASH500"}
 
 BASE_PRICES = {
     "^DJI": 52000, "^NDX": 28600,
     "GC=F": 4070, "EUR/USD": 1.09, "GBP/USD": 1.27,
+    "R_75": 162500, "R_100": 232000, "BOOM500": 4850, "CRASH500": 16300,
     "BTC/USD": 68000, "ETH/USD": 3500, "SOL/USD": 145, "BNB/USD": 580,
     "AAPL": 210, "MSFT": 430, "TSLA": 260, "NVDA": 820, "SPY": 550,
+}
+
+DERIV_SYMBOLS = {"R_75", "R_100", "BOOM500", "CRASH500"}
+
+DERIV_LABELS = {
+    "R_75": "Volatility 75", "R_100": "Volatility 100",
+    "BOOM500": "Boom 500", "CRASH500": "Crash 500",
 }
 
 
@@ -46,14 +61,11 @@ async def _fetch_yahoo_index(symbol: str) -> dict | None:
             price = meta.get("regularMarketPrice") or meta.get("previousClose")
             if not price:
                 return None
-            opens = quotes.get("open", [])
             highs = quotes.get("high", [])
             lows = quotes.get("low", [])
-            closes = quotes.get("close", [])
             volumes = quotes.get("volume", [])
             all_highs = [h for h in highs if h is not None]
             all_lows = [l for l in lows if l is not None]
-            valid_closes = [c for c in closes if c is not None]
             prev = meta.get("chartPreviousClose") or meta.get("previousClose") or price
             change = float(price) - float(prev)
             change_pct = (change / float(prev)) * 100 if float(prev) else 0
@@ -69,6 +81,126 @@ async def _fetch_yahoo_index(symbol: str) -> dict | None:
     except Exception:
         return None
 
+
+async def _fetch_deriv_tick(symbol: str) -> dict | None:
+    try:
+        async with websockets.connect(DERIV_WS_URI, ping_interval=None, close_timeout=5) as ws:
+            await ws.send(json.dumps({"ticks": symbol}))
+            resp = await asyncio.wait_for(ws.recv(), timeout=5)
+            data = json.loads(resp)
+            tick = data.get("tick", {})
+            price = tick.get("quote")
+            if price is None:
+                return None
+            epoch = tick.get("epoch", 0)
+            ts = datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat() if epoch else datetime.now(timezone.utc).isoformat()
+            tick_id = tick.get("id", "")
+            if tick_id:
+                await ws.send(json.dumps({"forget": tick_id}))
+            return {
+                "symbol": symbol,
+                "price": float(price),
+                "high": float(price),
+                "low": float(price),
+                "change": 0.0,
+                "change_pct": 0.0,
+                "volume": 0,
+                "source": "deriv",
+                "timestamp": ts,
+            }
+    except Exception:
+        return None
+
+
+async def _fetch_live(sym: str) -> dict | None:
+    if sym in DERIV_SYMBOLS:
+        return await _fetch_deriv_tick(sym)
+    if sym in ("^DJI", "^NDX", "GC=F"):
+        return await _fetch_yahoo_index(sym)
+    return None
+
+
+async def _build_quotes(now: str, mock_fn):
+    live_symbols = [sym for cat, syms in WATCHLIST.items() for sym in syms if sym in LIVE_SYMBOLS]
+    mock_symbols = [sym for cat, syms in WATCHLIST.items() for sym in syms if sym not in LIVE_SYMBOLS]
+
+    live_results = await asyncio.gather(*[_fetch_live(sym) for sym in live_symbols], return_exceptions=True)
+    results = {}
+    for sym, result in zip(live_symbols, live_results):
+        if isinstance(result, dict) and result:
+            results[sym] = result
+        else:
+            results[sym] = mock_fn(sym, now)
+    for sym in mock_symbols:
+        results[sym] = mock_fn(sym, now)
+    return results
+
+
+@app.get("/api/health")
+async def health():
+    return {
+        "status": "ok", "version": "1.5.0",
+        "live_symbols": list(LIVE_SYMBOLS),
+        "data_sources": {"yahoo": True, "deriv": True},
+    }
+
+
+@app.get("/api/market/watchlist")
+async def watchlist():
+    return WATCHLIST
+
+
+@app.get("/api/scraper/status")
+async def scraper_status():
+    return {
+        "mode": "live",
+        "sources": {"yahoo": list(LIVE_SYMBOLS - DERIV_SYMBOLS), "deriv": list(DERIV_SYMBOLS)},
+        "symbols_tracked": sum(len(v) for v in WATCHLIST.values()),
+    }
+
+
+@app.get("/api/market/prices")
+async def market_prices():
+    now = datetime.now(timezone.utc).isoformat()
+    prices = await _build_quotes(now, _mock_quote)
+    return {"timestamp": now, "prices": prices}
+
+
+@app.get("/api/market/ticks/live")
+async def get_live_ticks():
+    now = datetime.now(timezone.utc).isoformat()
+    ticks = await _build_quotes(now, _mock_tick)
+    return {"ticks": ticks, "source": "live", "timestamp": now}
+
+
+@app.get("/api/market/scan")
+async def market_scan():
+    now = datetime.now(timezone.utc).isoformat()
+    prices = await _build_quotes(now, _mock_quote)
+    return {"prices": prices, "movers": {}, "timestamp": now}
+
+
+@app.get("/api/market/price/{symbol:path}")
+async def market_price(symbol: str):
+    now = datetime.now(timezone.utc).isoformat()
+    if symbol in LIVE_SYMBOLS:
+        live = await _fetch_live(symbol)
+        if live:
+            return live
+    return _mock_quote(symbol, now)
+
+
+@app.get("/api/market/movers")
+async def market_movers():
+    gainers = ["^NDX", "SOL/USD", "NVDA", "TSLA", "BTC/USD"]
+    losers = ["^DJI", "ETH/USD", "MSFT", "BNB/USD", "EUR/USD"]
+    return {
+        "gainers": [{"symbol": s, "percent_change": round(random.uniform(1, 5), 2)} for s in gainers],
+        "losers": [{"symbol": s, "percent_change": round(random.uniform(-5, -1), 2)} for s in losers],
+        "most_active": [{"symbol": s, "volume": int(random.uniform(10000, 100000))} for s in ["^NDX", "^DJI", "NVDA", "TSLA", "SPY"]],
+    }
+
+
 def _safe_float(v):
     if v is None:
         return 0.0
@@ -76,6 +208,7 @@ def _safe_float(v):
         return float(v)
     except (ValueError, TypeError):
         return 0.0
+
 
 def _mock_quote(sym: str, now: str):
     base = BASE_PRICES.get(sym, 100)
@@ -90,6 +223,7 @@ def _mock_quote(sym: str, now: str):
         "source": "mock", "timestamp": now,
     }
 
+
 def _mock_tick(sym: str, now: str):
     base = BASE_PRICES.get(sym, 100)
     price = round(base + random.uniform(-base * 0.005, base * 0.005), 2)
@@ -99,77 +233,4 @@ def _mock_tick(sym: str, now: str):
         "high": round(price + random.uniform(0, price * 0.01), 2),
         "volume": int(random.uniform(1000, 50000)),
         "source": "mock", "timestamp": now,
-    }
-
-async def _fetch_live(sym: str) -> dict | None:
-    if sym in ("^DJI", "^NDX", "GC=F"):
-        return await _fetch_yahoo_index(sym)
-    return None
-
-async def _build_quotes(now: str, mock_fn):
-    results = {}
-    for cat, syms in WATCHLIST.items():
-        for sym in syms:
-            if sym in LIVE_SYMBOLS:
-                live = await _fetch_live(sym)
-                if live:
-                    results[sym] = live
-                    continue
-            results[sym] = mock_fn(sym, now)
-    return results
-
-@app.get("/api/health")
-async def health():
-    return {
-        "status": "ok", "version": "1.4.0",
-        "live_symbols": list(LIVE_SYMBOLS),
-        "data_source": "yahoo",
-    }
-
-@app.get("/api/market/watchlist")
-async def watchlist():
-    return WATCHLIST
-
-@app.get("/api/scraper/status")
-async def scraper_status():
-    return {
-        "mode": "live", "source": "yahoo",
-        "symbols_tracked": sum(len(v) for v in WATCHLIST.values()),
-    }
-
-@app.get("/api/market/prices")
-async def market_prices():
-    now = datetime.now(timezone.utc).isoformat()
-    prices = await _build_quotes(now, _mock_quote)
-    return {"timestamp": now, "prices": prices}
-
-@app.get("/api/market/ticks/live")
-async def get_live_ticks():
-    now = datetime.now(timezone.utc).isoformat()
-    ticks = await _build_quotes(now, _mock_tick)
-    return {"ticks": ticks, "source": "live", "timestamp": now}
-
-@app.get("/api/market/scan")
-async def market_scan():
-    now = datetime.now(timezone.utc).isoformat()
-    prices = await _build_quotes(now, _mock_quote)
-    return {"prices": prices, "movers": {}, "timestamp": now}
-
-@app.get("/api/market/price/{symbol:path}")
-async def market_price(symbol: str):
-    now = datetime.now(timezone.utc).isoformat()
-    if symbol in LIVE_SYMBOLS:
-        live = await _fetch_live(symbol)
-        if live:
-            return live
-    return _mock_quote(symbol, now)
-
-@app.get("/api/market/movers")
-async def market_movers():
-    gainers = ["^NDX", "SOL/USD", "NVDA", "TSLA", "BTC/USD"]
-    losers = ["^DJI", "ETH/USD", "MSFT", "BNB/USD", "EUR/USD"]
-    return {
-        "gainers": [{"symbol": s, "percent_change": round(random.uniform(1, 5), 2)} for s in gainers],
-        "losers": [{"symbol": s, "percent_change": round(random.uniform(-5, -1), 2)} for s in losers],
-        "most_active": [{"symbol": s, "volume": int(random.uniform(10000, 100000))} for s in ["^NDX", "^DJI", "NVDA", "TSLA", "SPY"]],
     }

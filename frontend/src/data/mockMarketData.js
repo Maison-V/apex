@@ -4,9 +4,11 @@
 // component below — only the fetch calls in services/marketService.js.
 
 export const WATCHLIST = {
-  crypto: ['BTC/USD', 'ETH/USD', 'SOL/USD', 'BNB/USD'],
+  indices: ['^DJI', '^NDX'],
   forex: ['EUR/USD', 'GBP/USD'],
   commodities: ['GC=F'],
+  synthetic: ['R_75', 'R_100', 'BOOM500', 'CRASH500'],
+  crypto: ['BTC/USD', 'ETH/USD', 'SOL/USD', 'BNB/USD'],
   stocks: ['AAPL', 'MSFT', 'TSLA', 'NVDA', 'SPY'],
 }
 
@@ -33,6 +35,10 @@ export const MOCK_QUOTES = {
   'EUR/USD': quote('EUR/USD', 1.0842, 1.0861, 1.0819, 0, 0.0012, 0.11),
   'GBP/USD': quote('GBP/USD', 1.2718, 1.2745, 1.2688, 0, -0.0021, -0.16),
   'GC=F': quote('GC=F', 4073.8, 4088.4, 4003.3, 0, 12.4, 0.52),
+  'R_75': quote('R_75', 158234.5, 158900.0, 157800.0, 0, 345.2, 0.22),
+  'R_100': quote('R_100', 229876.1, 230500.0, 229100.0, 0, 512.8, 0.22),
+  'BOOM500': quote('BOOM500', 4862.3, 4890.0, 4830.0, 0, 18.5, 0.38),
+  'CRASH500': quote('CRASH500', 16421.8, 16500.0, 16350.0, 0, -42.1, -0.26),
   AAPL: quote('AAPL', 221.34, 223.8, 218.9, 51230000, 1.86, 0.85),
   MSFT: quote('MSFT', 448.72, 452.1, 444.3, 21850000, -2.14, -0.47),
   TSLA: quote('TSLA', 261.09, 268.4, 255.2, 88410000, 8.92, 3.54),
@@ -61,6 +67,10 @@ export const MOCK_TECHNICALS = {
   'EUR/USD': technicals('EUR/USD', 49.6, macd(0.0008, 0.0006, 0.0002), 1.083, 1.081, bb(1.089, 1.083, 1.077)),
   'GBP/USD': technicals('GBP/USD', 38.7, macd(-0.0011, -0.0005, -0.0006), 1.276, 1.279, bb(1.284, 1.276, 1.268)),
   'GC=F': technicals('GC=F', 63.5, macd(9.8, 7.2, 2.6), 4050.4, 3998.6, bb(4110, 4050, 3990)),
+  'R_75': technicals('R_75', 52.4, macd(120.5, 95.2, 25.3), 157900, 156800, bb(159200, 157900, 156600)),
+  'R_100': technicals('R_100', 54.8, macd(180.3, 142.1, 38.2), 229500, 228100, bb(231000, 229500, 228000)),
+  'BOOM500': technicals('BOOM500', 58.2, macd(8.5, 6.2, 2.3), 4850, 4820, bb(4890, 4850, 4810)),
+  'CRASH500': technicals('CRASH500', 42.6, macd(-12.4, -5.8, -6.6), 16480, 16550, bb(16600, 16480, 16360)),
   AAPL: technicals('AAPL', 55.8, macd(1.9, 1.4, 0.5), 217.6, 211.3, bb(226, 217.6, 209.2)),
   MSFT: technicals('MSFT', 47.3, macd(-0.8, -0.3, -0.5), 451.2, 446.8, bb(459, 451.2, 443.4)),
   TSLA: technicals('TSLA', 66.9, macd(4.6, 2.8, 1.8), 248.9, 232.1, bb(272, 248.9, 225.8)),
