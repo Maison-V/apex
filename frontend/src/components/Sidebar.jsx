@@ -21,15 +21,14 @@ export default function Sidebar({ currentView, onViewChange }) {
         return (
           <div key={item.id}>
             {showSection && <div className="nav-section-label">{item.section}</div>}
-            <div
+            <button
+              type="button"
               className={`nav-item${item.id === currentView ? ' active' : ''}`}
               onClick={() => onViewChange(item.id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onViewChange(item.id) }}
+              aria-current={item.id === currentView ? 'page' : undefined}
             >
               {item.label}
-            </div>
+            </button>
           </div>
         )
       })}
