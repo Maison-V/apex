@@ -1,7 +1,6 @@
 fastapi
 httpx
 python-dotenv
-websockets
 yfinance
 pandas
 numpy

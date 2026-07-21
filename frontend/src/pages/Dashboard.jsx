@@ -14,6 +14,7 @@ import {
   getFundamentals,
   getLiveTicks,
 } from '../services/marketService'
+import { derivService } from '../services/derivService'
 
 export default function Dashboard() {
   const [watchlist, setWatchlist] = useState({})
@@ -43,9 +44,15 @@ export default function Dashboard() {
       setLoadingCore(false)
       const firstSymbol = wl[activeCategory]?.[0]
       if (firstSymbol) setSelectedSymbol(firstSymbol)
+
+      const syntheticSymbols = wl.synthetic ?? []
+      if (syntheticSymbols.length > 0) {
+        await derivService.init()
+        derivService.connect(syntheticSymbols)
+      }
     }
     loadCore()
-    return () => { mounted = false }
+    return () => { mounted = false; derivService.disconnect() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -118,6 +125,32 @@ export default function Dashboard() {
 
     pollTicks()
     return () => { mounted = false; clearTimeout(timeoutId) }
+  }, [])
+
+  useEffect(() => {
+    const unsub = derivService.subscribe((symbol, price, timestamp) => {
+      setQuotes((prev) => {
+        const prevQuote = prev[symbol]
+        const change = prevQuote?.price != null ? price - prevQuote.price : 0
+        const changePct = prevQuote?.price ? (change / prevQuote.price) * 100 : 0
+        return {
+          ...prev,
+          [symbol]: {
+            ...(prevQuote || {}),
+            symbol,
+            price,
+            change,
+            change_pct: changePct,
+            low: prevQuote?.low != null && prevQuote.low < price ? prevQuote.low : price,
+            high: prevQuote?.high != null && prevQuote.high > price ? prevQuote.high : price,
+            volume: prevQuote?.volume ?? 0,
+            source: 'deriv',
+            timestamp,
+          },
+        }
+      })
+    })
+    return () => unsub()
   }, [])
 
   const handleCategoryChange = (category) => {

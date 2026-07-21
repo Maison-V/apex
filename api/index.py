@@ -1,19 +1,14 @@
 import asyncio
-import json
 import os
 import random
 from datetime import datetime, timezone
 
 import httpx
-import websockets
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="APEX Dashboard API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-DERIV_APP_ID = os.environ.get("DERIV_APP_ID", "1089")
-DERIV_WS_URI = f"wss://ws.deriv.com/websockets/v3?app_id={DERIV_APP_ID}"
 
 WATCHLIST = {
     "indices": ["^DJI", "^NDX"],
@@ -34,12 +29,7 @@ BASE_PRICES = {
     "AAPL": 210, "MSFT": 430, "TSLA": 260, "NVDA": 820, "SPY": 550,
 }
 
-DERIV_SYMBOLS = {"R_75", "R_100", "BOOM500", "CRASH500"}
 
-DERIV_LABELS = {
-    "R_75": "Volatility 75", "R_100": "Volatility 100",
-    "BOOM500": "Boom 500", "CRASH500": "Crash 500",
-}
 
 
 async def _fetch_yahoo_index(symbol: str) -> dict | None:
@@ -82,39 +72,7 @@ async def _fetch_yahoo_index(symbol: str) -> dict | None:
         return None
 
 
-async def _fetch_deriv_tick(symbol: str) -> dict | None:
-    try:
-        async with websockets.connect(DERIV_WS_URI, ping_interval=None, close_timeout=5) as ws:
-            await ws.send(json.dumps({"ticks": symbol}))
-            resp = await asyncio.wait_for(ws.recv(), timeout=5)
-            data = json.loads(resp)
-            tick = data.get("tick", {})
-            price = tick.get("quote")
-            if price is None:
-                return None
-            epoch = tick.get("epoch", 0)
-            ts = datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat() if epoch else datetime.now(timezone.utc).isoformat()
-            tick_id = tick.get("id", "")
-            if tick_id:
-                await ws.send(json.dumps({"forget": tick_id}))
-            return {
-                "symbol": symbol,
-                "price": float(price),
-                "high": float(price),
-                "low": float(price),
-                "change": 0.0,
-                "change_pct": 0.0,
-                "volume": 0,
-                "source": "deriv",
-                "timestamp": ts,
-            }
-    except Exception:
-        return None
-
-
 async def _fetch_live(sym: str) -> dict | None:
-    if sym in DERIV_SYMBOLS:
-        return await _fetch_deriv_tick(sym)
     if sym in ("^DJI", "^NDX", "GC=F"):
         return await _fetch_yahoo_index(sym)
     return None
@@ -141,7 +99,7 @@ async def health():
     return {
         "status": "ok", "version": "1.5.0",
         "live_symbols": list(LIVE_SYMBOLS),
-        "data_sources": {"yahoo": True, "deriv": True},
+        "data_sources": {"yahoo": True},
     }
 
 
@@ -154,7 +112,6 @@ async def watchlist():
 async def scraper_status():
     return {
         "mode": "live",
-        "sources": {"yahoo": list(LIVE_SYMBOLS - DERIV_SYMBOLS), "deriv": list(DERIV_SYMBOLS)},
         "symbols_tracked": sum(len(v) for v in WATCHLIST.values()),
     }
 
@@ -188,6 +145,12 @@ async def market_price(symbol: str):
         if live:
             return live
     return _mock_quote(symbol, now)
+
+
+@app.get("/api/deriv/config")
+async def deriv_config():
+    token = os.environ.get("DERIV_TOKEN", "")
+    return {"token": token, "app_id": "1089", "ws_url": "wss://ws.deriv.com/websockets/v3"}
 
 
 @app.get("/api/market/movers")
