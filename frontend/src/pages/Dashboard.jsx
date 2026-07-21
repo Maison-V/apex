@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [loadingFundamentals, setLoadingFundamentals] = useState(false)
 
   const [liveActive, setLiveActive] = useState(false)
+  const [derivSymbols, setDerivSymbols] = useState(new Set())
 
   useEffect(() => {
     let mounted = true
@@ -46,6 +47,7 @@ export default function Dashboard() {
       if (firstSymbol) setSelectedSymbol(firstSymbol)
 
       const syntheticSymbols = wl.synthetic ?? []
+      setDerivSymbols(new Set(syntheticSymbols))
       if (syntheticSymbols.length > 0) {
         await derivService.init()
         derivService.connect(syntheticSymbols)
@@ -94,6 +96,7 @@ export default function Dashboard() {
           setQuotes((prev) => {
             const updated = { ...prev }
             for (const [sym, t] of Object.entries(ticks)) {
+              if (derivSymbols.has(sym)) continue
               const price = t.price ?? t.last ?? t.bid
               if (price) {
                 const prevQuote = prev[sym]
