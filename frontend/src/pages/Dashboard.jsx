@@ -8,6 +8,8 @@ import FundamentalsPanel from '../components/FundamentalsPanel'
 import MarketMovers from '../components/MarketMovers'
 import LDPAnalyzer from '../components/LDPAnalyzer'
 import HFTConsole from '../components/HFTConsole'
+import StrategyPlayground from '../components/StrategyPlayground'
+import SpikeDetector from '../components/SpikeDetector'
 import {
   getWatchlist,
   getAllQuotes,
@@ -173,6 +175,8 @@ export default function Dashboard() {
   const viewTitle = currentView === 'dashboard' ? 'Market Dashboard'
     : currentView === 'ldp' ? 'Last Digit Predictor'
     : currentView === 'hft' ? 'HFT Console'
+    : currentView === 'strategy' ? 'Strategy Playground'
+    : currentView === 'spike' ? 'Spike Detector'
     : 'Dashboard'
 
   return (
@@ -218,6 +222,14 @@ export default function Dashboard() {
         ) : currentView === 'ldp' ? (
           <div className="dash-body">
             <LDPAnalyzer watchlist={watchlist} />
+          </div>
+        ) : currentView === 'spike' ? (
+          <div className="dash-body">
+            <SpikeDetector watchlist={watchlist} />
+          </div>
+        ) : currentView === 'strategy' ? (
+          <div className="dash-body">
+            <StrategyPlayground watchlist={watchlist} />
           </div>
         ) : (
           <div className="dash-body">

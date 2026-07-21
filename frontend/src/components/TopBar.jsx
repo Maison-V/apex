@@ -12,6 +12,7 @@ export default function TopBar({ liveActive, title }) {
           {title === 'Market Dashboard' ? 'Prices · Technicals · Fundamentals · Movers'
             : title === 'HFT Console' ? 'Tick monitoring · Latency · HFT strategies'
             : title === 'Last Digit Predictor' ? 'Digit frequency · Markov chain · Prediction accuracy'
+            : title === 'Spike Detector' ? 'Z-score spike detection · Mean reversion · Boom/Crash analysis'
             : 'Real-time market intelligence'}
         </div>
       </div>

@@ -5,6 +5,8 @@ const NAV = [
   { id: 'dashboard', label: 'Market dashboard', section: 'Overview' },
   { id: 'hft', label: 'HFT Console', section: 'Trading' },
   { id: 'ldp', label: 'Last Digit Predictor', section: 'Trading' },
+  { id: 'strategy', label: 'Strategy Playground', section: 'Trading' },
+  { id: 'spike', label: 'Spike Detector', section: 'Trading' },
 ]
 
 export default function Sidebar({ currentView, onViewChange }) {
