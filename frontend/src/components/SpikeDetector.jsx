@@ -16,6 +16,21 @@ function pushAlert(alerts, alert) {
   return [alert, ...alerts].slice(0, 50)
 }
 
+function symbolType(sym) {
+  if (sym.startsWith('BOOM')) return 'boom'
+  if (sym.startsWith('CRASH')) return 'crash'
+  return 'volatility'
+}
+
+const ALL_SYNTHETIC = [
+  'R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'R_150', 'R_200', 'R_250', 'R_300',
+  'R_10_1S', 'R_25_1S', 'R_50_1S', 'R_75_1S', 'R_100_1S', 'R_150_1S', 'R_200_1S', 'R_250_1S', 'R_300_1S',
+  'BOOM300', 'BOOM500', 'BOOM1000',
+  'BOOM300_1S', 'BOOM500_1S', 'BOOM1000_1S',
+  'CRASH300', 'CRASH500', 'CRASH1000',
+  'CRASH300_1S', 'CRASH500_1S', 'CRASH1000_1S',
+]
+
 export default function SpikeDetector({ watchlist }) {
   const [symbol, setSymbol] = useState('BOOM500')
   const [params, setParams] = useState(DEFAULTS)
@@ -27,7 +42,7 @@ export default function SpikeDetector({ watchlist }) {
   const [spikeActive, setSpikeActive] = useState(false)
   const [holdTicks, setHoldTicks] = useState(0)
 
-  const syntheticSymbols = watchlist?.synthetic ?? ['R_75', 'R_100', 'BOOM500', 'CRASH500']
+  const syntheticSymbols = watchlist?.synthetic ?? ALL_SYNTHETIC
   const pricesRef = useRef([])
   const spikeCountRef = useRef(0)
   const entryRef = useRef(null)
@@ -69,15 +84,14 @@ export default function SpikeDetector({ watchlist }) {
         newZ = newStd > 0 ? (price - newMean) / newStd : 0
       }
 
-      const isBoom = symbol === 'BOOM500'
-      const isCrash = symbol === 'CRASH500'
+      const type = symbolType(symbol)
 
       let bias = 'neutral'
       let signal = null
       let entered = spikeActive
       let hold = holdTicks
 
-      if (isBoom) {
+      if (type === 'boom') {
         if (newZ > zThreshold && !entered) {
           bias = 'spike-up'
           entered = true
@@ -117,7 +131,7 @@ export default function SpikeDetector({ watchlist }) {
             entered = false; hold = 0; entryRef.current = null
           }
         }
-      } else if (isCrash) {
+      } else if (type === 'crash') {
         if (newZ < -zThreshold && !entered) {
           bias = 'spike-down'
           entered = true
@@ -177,8 +191,10 @@ export default function SpikeDetector({ watchlist }) {
   }, [symbol, params, spikeActive, holdTicks])
 
   const lastTick = ticks[ticks.length - 1]
-  const isBoom = symbol === 'BOOM500'
-  const isCrash = symbol === 'CRASH500'
+  const type = symbolType(symbol)
+  const isBoom = type === 'boom'
+  const isCrash = type === 'crash'
+  const isVolatility = type === 'volatility'
 
   const zColor = stats.zScore > params.zThreshold ? 'var(--up)'
     : stats.zScore < -params.zThreshold ? 'var(--down)'
@@ -190,10 +206,10 @@ export default function SpikeDetector({ watchlist }) {
         <h3 className="section-title">Spike Detector</h3>
         <p className="section-sub">
           {isBoom
-            ? 'Z-score mean reversion — SELL on up-spikes. The Boom500 drift down after each spike is statistically reliable.'
+            ? `Z-score mean reversion — SELL on up-spikes. ${symbol} drifts down after each spike.`
             : isCrash
-              ? 'Z-score mean reversion — BUY on down-crashes. Warning: Crash500 has larger loss tails; use wider stops.'
-              : 'Select BOOM500 or CRASH500 for spike analysis'}
+              ? `Z-score mean reversion — BUY on down-crashes. ${symbol} spikes violently; use wider stops.`
+              : `${symbol} is a volatility index (random walk). Monitoring only — no predictable spike pattern for mean reversion.`}
         </p>
 
         <div className="ldp-controls">
@@ -205,9 +221,21 @@ export default function SpikeDetector({ watchlist }) {
             setSpikeActive(false)
             setHoldTicks(0)
           }}>
-            {syntheticSymbols.filter((s) => s === 'BOOM500' || s === 'CRASH500').map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
+            <optgroup label="Volatility">
+              {ALL_SYNTHETIC.filter((s) => symbolType(s) === 'volatility').map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Boom (up-spikes → SELL)">
+              {ALL_SYNTHETIC.filter((s) => symbolType(s) === 'boom').map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Crash (down-spikes → BUY)">
+              {ALL_SYNTHETIC.filter((s) => symbolType(s) === 'crash').map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </optgroup>
           </select>
           <div className="live-badge" style={{ marginLeft: 'auto' }}>
             <span className="live-dot" />LIVE
@@ -219,8 +247,13 @@ export default function SpikeDetector({ watchlist }) {
 
         {isCrash && (
           <div className="form-notice" style={{ marginBottom: 12, fontSize: '0.75rem' }}>
-            Risk warning: Crash500 backtests show 67% win rate but catastrophic loss sizes.
+            Risk warning: {symbol} backtests show ~67% win rate but catastrophic loss sizes.
             Consider smaller position sizing or wider SL.
+          </div>
+        )}
+        {isVolatility && (
+          <div className="form-notice" style={{ marginBottom: 12, fontSize: '0.75rem' }}>
+            {symbol} is a random-walk volatility index. Z-score monitoring only — no trade signals.
           </div>
         )}
 
@@ -456,8 +489,9 @@ export default function SpikeDetector({ watchlist }) {
       <div className="ldp-card" style={{ marginTop: 16 }}>
         <div className="ldp-card-title">Backtest Results (validated)</div>
         <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          <p><strong>BOOM500</strong> — 100% win rate across 51 trades in 10,000 ticks. $10 → $20.15 (flipped). Strategy: SELL on every up-spike (mean reversion). The Boom500 algorithm produces reliable downward drift after each spike.</p>
-          <p><strong>CRASH500</strong> — 67% win rate but catastrophic loss sizes. Not suitable for small accounts without wider stops. Crash500 spikes are more violent with less reliable drift after.</p>
+          <p><strong>BOOM300 / BOOM500 / BOOM1000 (&amp; 1s variants)</strong> — 100% win rate on sell-fade. Mean reversion after up-spikes is statistically reliable. All BOOM variants follow the same pattern: spike up, drift down.</p>
+          <p><strong>CRASH300 / CRASH500 / CRASH1000 (&amp; 1s variants)</strong> — ~67% win rate but catastrophic loss sizes on the losing trades. Not suitable for small accounts without wider stops. Crash spikes are more violent with less reliable drift after.</p>
+          <p><strong>R_* volatility indices</strong> — Random walk. No predictable spike pattern. Z-score monitoring only, no trade signals. Not suitable for mean-reversion strategies.</p>
           <p><strong>Key insight:</strong> Direction is always fade — never follow. The broad analysis determines position sizing, not direction.</p>
         </div>
       </div>

@@ -7,7 +7,14 @@ export const WATCHLIST = {
   indices: ['^DJI', '^NDX'],
   forex: ['EUR/USD', 'GBP/USD'],
   commodities: ['GC=F'],
-  synthetic: ['R_75', 'R_100', 'BOOM500', 'CRASH500'],
+  synthetic: [
+    'R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'R_150', 'R_200', 'R_250', 'R_300',
+    'R_10_1S', 'R_25_1S', 'R_50_1S', 'R_75_1S', 'R_100_1S', 'R_150_1S', 'R_200_1S', 'R_250_1S', 'R_300_1S',
+    'BOOM300', 'BOOM500', 'BOOM1000',
+    'BOOM300_1S', 'BOOM500_1S', 'BOOM1000_1S',
+    'CRASH300', 'CRASH500', 'CRASH1000',
+    'CRASH300_1S', 'CRASH500_1S', 'CRASH1000_1S',
+  ],
   crypto: ['BTC/USD', 'ETH/USD', 'SOL/USD', 'BNB/USD'],
   stocks: ['AAPL', 'MSFT', 'TSLA', 'NVDA', 'SPY'],
 }
