@@ -108,6 +108,16 @@ class DerivService {
     return this.tickHistory[symbol] || []
   }
 
+  subscribeSymbol(sym) {
+    if (this.symbols.includes(sym)) return
+    this.symbols.push(sym)
+    this.tickHistory[sym] = []
+    this.digitHistory[sym] = []
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ ticks: sym }))
+    }
+  }
+
   subscribe(fn) {
     this.listeners.add(fn)
     return () => this.listeners.delete(fn)

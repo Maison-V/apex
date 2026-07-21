@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import random
 from datetime import datetime, timezone
@@ -156,6 +157,90 @@ async def deriv_config():
         "public_ws": "wss://api.derivws.com/trading/v1/options/ws/public",
         "legacy_ws": "wss://ws.binaryws.com/websockets/v3",
     }
+
+
+_VOLATILITY_CACHE = None
+_VOLATILITY_CACHE_TIME = 0
+
+
+@app.get("/api/deriv/symbols")
+async def deriv_symbols():
+    global _VOLATILITY_CACHE, _VOLATILITY_CACHE_TIME
+    now = datetime.now(timezone.utc).timestamp()
+    if _VOLATILITY_CACHE and now - _VOLATILITY_CACHE_TIME < 300:
+        return _VOLATILITY_CACHE
+
+    try:
+        import websockets
+        async with websockets.connect(
+            "wss://ws.binaryws.com/websockets/v3?app_id=1089", max_size=2**20, close_timeout=10
+        ) as ws:
+            await ws.send(json.dumps({"active_symbols": "brief", "product_type": "basic"}))
+            resp = await asyncio.wait_for(ws.recv(), timeout=15)
+            data = json.loads(resp)
+            symbols = data.get("active_symbols", [])
+    except Exception:
+        symbols = []
+
+    if symbols:
+        vol = []
+        seen = set()
+        for s in symbols:
+            sym = s.get("symbol", "")
+            if not sym: continue
+            display = s.get("display_name", sym)
+            market = s.get("market", "")
+            submarket = s.get("submarket", "")
+            is_vol = (
+                sym.startswith("R_") or sym.startswith("BOOM") or sym.startswith("CRASH")
+            ) and "volatility" in (submarket or "").lower()
+            if is_vol and sym not in seen:
+                seen.add(sym)
+                vol.append({"symbol": sym, "display": display, "market": market, "submarket": submarket})
+        vol.sort(key=lambda x: x["symbol"])
+        result = {"symbols": vol, "count": len(vol), "source": "deriv"}
+    else:
+        fallback = _volatility_fallback()
+        result = {"symbols": fallback, "count": len(fallback), "source": "fallback"}
+
+    _VOLATILITY_CACHE = result
+    _VOLATILITY_CACHE_TIME = now
+    return result
+
+
+def _volatility_fallback():
+    return [
+        {"symbol": "R_10", "display": "Volatility 10 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_25", "display": "Volatility 25 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_50", "display": "Volatility 50 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_75", "display": "Volatility 75 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_100", "display": "Volatility 100 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_150", "display": "Volatility 150 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_200", "display": "Volatility 200 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_250", "display": "Volatility 250 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_300", "display": "Volatility 300 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_10_1S", "display": "Volatility 10 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_25_1S", "display": "Volatility 25 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_50_1S", "display": "Volatility 50 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_75_1S", "display": "Volatility 75 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_100_1S", "display": "Volatility 100 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_150_1S", "display": "Volatility 150 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_200_1S", "display": "Volatility 200 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_250_1S", "display": "Volatility 250 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "R_300_1S", "display": "Volatility 300 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "BOOM300", "display": "Boom 300 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "BOOM500", "display": "Boom 500 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "BOOM1000", "display": "Boom 1000 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "BOOM300_1S", "display": "Boom 300 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "BOOM500_1S", "display": "Boom 500 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "BOOM1000_1S", "display": "Boom 1000 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "CRASH300", "display": "Crash 300 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "CRASH500", "display": "Crash 500 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "CRASH1000", "display": "Crash 1000 Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "CRASH300_1S", "display": "Crash 300 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "CRASH500_1S", "display": "Crash 500 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+        {"symbol": "CRASH1000_1S", "display": "Crash 1000 (1s) Index", "market": "synthetic_index", "submarket": "volatility"},
+    ]
 
 
 @app.get("/api/market/movers")

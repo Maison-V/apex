@@ -22,7 +22,7 @@ function symbolType(sym) {
   return 'volatility'
 }
 
-const ALL_SYNTHETIC = [
+const FALLBACK_SYNTHETIC = [
   'R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'R_150', 'R_200', 'R_250', 'R_300',
   'R_10_1S', 'R_25_1S', 'R_50_1S', 'R_75_1S', 'R_100_1S', 'R_150_1S', 'R_200_1S', 'R_250_1S', 'R_300_1S',
   'BOOM300', 'BOOM500', 'BOOM1000',
@@ -41,8 +41,21 @@ export default function SpikeDetector({ watchlist }) {
   const [alerts, setAlerts] = useState([])
   const [spikeActive, setSpikeActive] = useState(false)
   const [holdTicks, setHoldTicks] = useState(0)
+  const [volSymbols, setVolSymbols] = useState(null)
 
-  const syntheticSymbols = watchlist?.synthetic ?? ALL_SYNTHETIC
+  const syntheticSymbols = watchlist?.synthetic ?? FALLBACK_SYNTHETIC
+  const allSymbols = volSymbols ?? FALLBACK_SYNTHETIC
+
+  useEffect(() => {
+    fetch('/api/deriv/symbols')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.symbols?.length) {
+          setVolSymbols(data.symbols.map((s) => s.symbol))
+        }
+      })
+      .catch(() => {})
+  }, [])
   const pricesRef = useRef([])
   const spikeCountRef = useRef(0)
   const entryRef = useRef(null)
@@ -214,25 +227,27 @@ export default function SpikeDetector({ watchlist }) {
 
         <div className="ldp-controls">
           <select className="window-select" value={symbol} onChange={(e) => {
-            setSymbol(e.target.value)
+            const next = e.target.value
+            setSymbol(next)
             pricesRef.current = []
             spikeCountRef.current = 0
             entryRef.current = null
             setSpikeActive(false)
             setHoldTicks(0)
+            derivService.subscribeSymbol(next)
           }}>
-            <optgroup label="Volatility">
-              {ALL_SYNTHETIC.filter((s) => symbolType(s) === 'volatility').map((s) => (
+            <optgroup label="Volatility (monitoring only)">
+              {allSymbols.filter((s) => symbolType(s) === 'volatility').map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </optgroup>
             <optgroup label="Boom (up-spikes → SELL)">
-              {ALL_SYNTHETIC.filter((s) => symbolType(s) === 'boom').map((s) => (
+              {allSymbols.filter((s) => symbolType(s) === 'boom').map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </optgroup>
             <optgroup label="Crash (down-spikes → BUY)">
-              {ALL_SYNTHETIC.filter((s) => symbolType(s) === 'crash').map((s) => (
+              {allSymbols.filter((s) => symbolType(s) === 'crash').map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </optgroup>
