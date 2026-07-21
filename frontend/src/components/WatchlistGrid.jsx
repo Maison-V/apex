@@ -34,12 +34,15 @@ export default function WatchlistGrid({ watchlist, quotes, activeCategory, onCat
           if (!q) return null
           const isUp = q.change_pct >= 0
           return (
-            <button
-              type="button"
+            <div
               key={symbol}
               className={`market-card ${symbol === selectedSymbol ? 'selected' : ''}`}
               onClick={() => onSelectSymbol(symbol)}
-              aria-pressed={symbol === selectedSymbol}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') onSelectSymbol(symbol)
+              }}
             >
               <div className="market-card-top">
                 <span className="symbol">{symbol}</span>
@@ -52,7 +55,7 @@ export default function WatchlistGrid({ watchlist, quotes, activeCategory, onCat
                 <span>L {q.low?.toLocaleString(undefined, { maximumFractionDigits: 4 }) ?? '-'}</span>
                 <span>H {q.high?.toLocaleString(undefined, { maximumFractionDigits: 4 }) ?? '-'}</span>
               </div>
-            </button>
+            </div>
           )
         })}
       </div>

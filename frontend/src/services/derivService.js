@@ -1,7 +1,16 @@
+function lastDigit(price) {
+  const s = typeof price === 'number' ? Math.abs(price).toFixed(4) : String(price)
+  const trimmed = s.replace(/[^0-9]/g, '')
+  if (!trimmed) return 0
+  return parseInt(trimmed.slice(-1), 10)
+}
+
 class DerivService {
   constructor() {
     this.ws = null
     this.prices = {}
+    this.tickHistory = {}
+    this.digitHistory = {}
     this.listeners = new Set()
     this.symbols = []
     this.reconnectTimer = null
@@ -24,6 +33,14 @@ class DerivService {
   connect(symbols) {
     this.symbols = symbols
     if (this.ws) return
+    if (!this.digitHistory[symbols[0]]) {
+      symbols.forEach((s) => {
+        if (!this.digitHistory[s]) {
+          this.digitHistory[s] = []
+          this.tickHistory[s] = []
+        }
+      })
+    }
     try {
       this.ws = new WebSocket(this.wsUrl())
       this.ws.onopen = () => {
@@ -43,6 +60,18 @@ class DerivService {
               timestamp: epoch
                 ? new Date(epoch * 1000).toISOString()
                 : new Date().toISOString(),
+            }
+            if (this.tickHistory[symbol]) {
+              this.tickHistory[symbol].push({ price: quote, epoch })
+              if (this.tickHistory[symbol].length > 10000) {
+                this.tickHistory[symbol].splice(0, 1000)
+              }
+            }
+            if (this.digitHistory[symbol]) {
+              this.digitHistory[symbol].push(lastDigit(quote))
+              if (this.digitHistory[symbol].length > 10000) {
+                this.digitHistory[symbol].splice(0, 1000)
+              }
             }
             this.notify(symbol)
           }
@@ -64,7 +93,19 @@ class DerivService {
       this.ws.close()
       this.ws = null
     }
-    this.prices = {}
+  }
+
+  clearHistory() {
+    this.tickHistory = {}
+    this.digitHistory = {}
+  }
+
+  getDigits(symbol) {
+    return this.digitHistory[symbol] || []
+  }
+
+  getTicks(symbol) {
+    return this.tickHistory[symbol] || []
   }
 
   subscribe(fn) {

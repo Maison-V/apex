@@ -5,7 +5,6 @@ const NAV = [
   { id: 'dashboard', label: 'Market dashboard', section: 'Overview' },
   { id: 'hft', label: 'HFT Console', section: 'Trading' },
   { id: 'ldp', label: 'Last Digit Predictor', section: 'Trading' },
-  { id: 'strategy', label: 'Strategy Playground', section: 'Trading' },
   { id: 'spike', label: 'Spike Detector', section: 'Trading' },
 ]
 
@@ -23,14 +22,15 @@ export default function Sidebar({ currentView, onViewChange }) {
         return (
           <div key={item.id}>
             {showSection && <div className="nav-section-label">{item.section}</div>}
-            <button
-              type="button"
+            <div
               className={`nav-item${item.id === currentView ? ' active' : ''}`}
               onClick={() => onViewChange(item.id)}
-              aria-current={item.id === currentView ? 'page' : undefined}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onViewChange(item.id) }}
             >
               {item.label}
-            </button>
+            </div>
           </div>
         )
       })}

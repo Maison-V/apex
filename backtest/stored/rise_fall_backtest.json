@@ -1,0 +1,274 @@
+{
+  "symbol": "R_75",
+  "ticks": 43485,
+  "payout": 0.92,
+  "breakeven_wr": 0.5208333333333334,
+  "strategies": [
+    {
+      "strategy": "MACD Crossover",
+      "trades": 3469,
+      "wins": 1772,
+      "losses": 1697,
+      "win_rate": 0.5108,
+      "wilson_ci_95": [
+        0.4942,
+        0.5274
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0192,
+      "total_profit": -667.6,
+      "max_drawdown_pct": 67.68,
+      "profit_factor": 0.9607,
+      "sharpe": -12.0788,
+      "final_capital": 332.4
+    },
+    {
+      "strategy": "MA Crossover (5/20)",
+      "trades": 2740,
+      "wins": 1383,
+      "losses": 1357,
+      "win_rate": 0.5047,
+      "wilson_ci_95": [
+        0.486,
+        0.5234
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0309,
+      "total_profit": -846.4,
+      "max_drawdown_pct": 108.02,
+      "profit_factor": 0.9376,
+      "sharpe": -19.3845,
+      "final_capital": 153.6
+    },
+    {
+      "strategy": "Range Breakout (20)",
+      "trades": 10983,
+      "wins": 5520,
+      "losses": 5463,
+      "win_rate": 0.5026,
+      "wilson_ci_95": [
+        0.4932,
+        0.5119
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.035,
+      "total_profit": -3846.0,
+      "max_drawdown_pct": 359.29,
+      "profit_factor": 0.9296,
+      "sharpe": -21.9738,
+      "final_capital": -2846.0
+    },
+    {
+      "strategy": "Momentum (price vs MA20)",
+      "trades": 43430,
+      "wins": 21763,
+      "losses": 21667,
+      "win_rate": 0.5011,
+      "wilson_ci_95": [
+        0.4964,
+        0.5058
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0379,
+      "total_profit": -16450.4,
+      "max_drawdown_pct": 1613.59,
+      "profit_factor": 0.9241,
+      "sharpe": -23.7683,
+      "final_capital": -15450.4
+    },
+    {
+      "strategy": "Always Fall",
+      "trades": 43433,
+      "wins": 21721,
+      "losses": 21712,
+      "win_rate": 0.5001,
+      "wilson_ci_95": [
+        0.4954,
+        0.5048
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0398,
+      "total_profit": -17286.8,
+      "max_drawdown_pct": 1523.69,
+      "profit_factor": 0.9204,
+      "sharpe": -24.975,
+      "final_capital": -16286.8
+    },
+    {
+      "strategy": "Always Rise",
+      "trades": 43433,
+      "wins": 21703,
+      "losses": 21730,
+      "win_rate": 0.4997,
+      "wilson_ci_95": [
+        0.495,
+        0.5044
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0406,
+      "total_profit": -17632.4,
+      "max_drawdown_pct": 1692.19,
+      "profit_factor": 0.9189,
+      "sharpe": -25.4743,
+      "final_capital": -16632.4
+    },
+    {
+      "strategy": "RSI <25/>75",
+      "trades": 42338,
+      "wins": 21151,
+      "losses": 21187,
+      "win_rate": 0.4996,
+      "wilson_ci_95": [
+        0.4948,
+        0.5043
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0408,
+      "total_profit": -17280.8,
+      "max_drawdown_pct": 1714.15,
+      "profit_factor": 0.9184,
+      "sharpe": -25.612,
+      "final_capital": -16280.8
+    },
+    {
+      "strategy": "RSI <30/>70",
+      "trades": 42810,
+      "wins": 21389,
+      "losses": 21421,
+      "win_rate": 0.4996,
+      "wilson_ci_95": [
+        0.4949,
+        0.5044
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0407,
+      "total_profit": -17431.2,
+      "max_drawdown_pct": 1729.05,
+      "profit_factor": 0.9186,
+      "sharpe": -25.5501,
+      "final_capital": -16431.2
+    },
+    {
+      "strategy": "Step Momentum",
+      "trades": 18767,
+      "wins": 9372,
+      "losses": 9395,
+      "win_rate": 0.4994,
+      "wilson_ci_95": [
+        0.4922,
+        0.5065
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0412,
+      "total_profit": -7727.6,
+      "max_drawdown_pct": 773.2,
+      "profit_factor": 0.9177,
+      "sharpe": -25.8381,
+      "final_capital": -6727.6
+    },
+    {
+      "strategy": "Bollinger Bounce",
+      "trades": 5277,
+      "wins": 2630,
+      "losses": 2647,
+      "win_rate": 0.4984,
+      "wilson_ci_95": [
+        0.4849,
+        0.5119
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0431,
+      "total_profit": -2274.0,
+      "max_drawdown_pct": 219.51,
+      "profit_factor": 0.9141,
+      "sharpe": -27.0406,
+      "final_capital": -1274.0
+    },
+    {
+      "strategy": "Stochastic <20/>80",
+      "trades": 26341,
+      "wins": 13121,
+      "losses": 13220,
+      "win_rate": 0.4981,
+      "wilson_ci_95": [
+        0.4921,
+        0.5042
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0436,
+      "total_profit": -11486.8,
+      "max_drawdown_pct": 1070.04,
+      "profit_factor": 0.9131,
+      "sharpe": -27.364,
+      "final_capital": -10486.8
+    },
+    {
+      "strategy": "Volatility Breakout",
+      "trades": 9966,
+      "wins": 4962,
+      "losses": 5004,
+      "win_rate": 0.4979,
+      "wilson_ci_95": [
+        0.4881,
+        0.5077
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.044,
+      "total_profit": -4389.6,
+      "max_drawdown_pct": 441.48,
+      "profit_factor": 0.9123,
+      "sharpe": -27.6387,
+      "final_capital": -3389.6
+    },
+    {
+      "strategy": "Alternate",
+      "trades": 43433,
+      "wins": 21626,
+      "losses": 21807,
+      "win_rate": 0.4979,
+      "wilson_ci_95": [
+        0.4932,
+        0.5026
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.044,
+      "total_profit": -19110.8,
+      "max_drawdown_pct": 1773.92,
+      "profit_factor": 0.9124,
+      "sharpe": -27.6104,
+      "final_capital": -18110.8
+    },
+    {
+      "strategy": "2-Tick Reversal",
+      "trades": 21843,
+      "wins": 10825,
+      "losses": 11018,
+      "win_rate": 0.4956,
+      "wilson_ci_95": [
+        0.489,
+        0.5022
+      ],
+      "breakeven_wr": 0.5208,
+      "profitable": false,
+      "ev_per_dollar": -0.0485,
+      "total_profit": -10590.0,
+      "max_drawdown_pct": 958.13,
+      "profit_factor": 0.9039,
+      "sharpe": -30.4236,
+      "final_capital": -9590.0
+    }
+  ]
+}

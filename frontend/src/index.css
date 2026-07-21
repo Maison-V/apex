@@ -930,26 +930,6 @@ a { color: inherit; text-decoration: none; }
   color: var(--down);
 }
 
-.ldp-history-dot.dimmed {
-  opacity: 0.25;
-}
-
-.clear-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.clear-btn:hover {
-  border-color: var(--down);
-  color: var(--down);
-}
-
 .window-select {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1089,7 +1069,9 @@ a { color: inherit; text-decoration: none; }
   margin-right: 4px;
 }
 
-/* ─── Spike Detector ─── */
+@media (prefers-reduced-motion: reduce) {
+  .section-block { animation: none; }
+}/* ─── Spike Detector ─── */
 
 .spike-params {
   display: grid;

@@ -1,0 +1,229 @@
+{
+  "config": {
+    "symbol": "R_75",
+    "backtest_window": 50,
+    "ml_window": 50,
+    "initial_capital": 1000.0,
+    "bet_size": 10.0,
+    "payout_match": 0.92,
+    "payout_differs": 0.92
+  },
+  "strategies": {
+    "always_match": {
+      "total_trades": 13031,
+      "wins": 1281,
+      "losses": 11750,
+      "win_rate": 0.098304,
+      "ev_per_dollar": -0.811256,
+      "total_profit": -105714.8,
+      "final_capital": -104714.8,
+      "max_drawdown_pct": -105.7148,
+      "profit_factor": 0.1003,
+      "sharpe_ratio": 0.004692,
+      "wilson_95pct_ci": {
+        "lower": 0.09331,
+        "center": 0.098422,
+        "upper": 0.103535
+      },
+      "monte_carlo": {
+        "p5": -105694.0,
+        "p50": -104734.0,
+        "p95": -103658.8,
+        "mean": -104706.99,
+        "std": 621.0
+      }
+    },
+    "always_differ": {
+      "total_trades": 13031,
+      "wins": 11757,
+      "losses": 1274,
+      "win_rate": 0.902233,
+      "ev_per_dollar": 0.732288,
+      "total_profit": 95424.4,
+      "final_capital": 96424.4,
+      "max_drawdown_pct": -0.01,
+      "profit_factor": 8.490141,
+      "sharpe_ratio": 0.416886,
+      "wilson_95pct_ci": {
+        "lower": 0.897015,
+        "center": 0.902115,
+        "upper": 0.907215
+      },
+      "monte_carlo": {
+        "p5": 95310.8,
+        "p50": 96443.6,
+        "p95": 97461.2,
+        "mean": 96407.29,
+        "std": 642.67
+      }
+    },
+    "markov_match": {
+      "total_trades": 13031,
+      "wins": 1302,
+      "losses": 11729,
+      "win_rate": 0.099916,
+      "ev_per_dollar": -0.808162,
+      "total_profit": -105311.6,
+      "final_capital": -104311.6,
+      "max_drawdown_pct": -105.3116,
+      "profit_factor": 0.102126,
+      "sharpe_ratio": 0.008074,
+      "wilson_95pct_ci": {
+        "lower": 0.094884,
+        "center": 0.100033,
+        "upper": 0.105183
+      },
+      "monte_carlo": {
+        "p5": -105386.8,
+        "p50": -104311.6,
+        "p95": -103217.2,
+        "mean": -104307.34,
+        "std": 664.27
+      }
+    },
+    "ml_match": {
+      "total_trades": 13031,
+      "wins": 1298,
+      "losses": 11733,
+      "win_rate": 0.099609,
+      "ev_per_dollar": -0.808751,
+      "total_profit": -105388.4,
+      "final_capital": -104388.4,
+      "max_drawdown_pct": -105.3884,
+      "profit_factor": 0.101778,
+      "sharpe_ratio": 0.013278,
+      "wilson_95pct_ci": {
+        "lower": 0.094584,
+        "center": 0.099727,
+        "upper": 0.104869
+      },
+      "monte_carlo": {
+        "p5": -105386.8,
+        "p50": -104398.0,
+        "p95": -103234.48,
+        "mean": -104359.37,
+        "std": 639.46
+      }
+    },
+    "high_conf_0.15": {
+      "total_trades": 13031,
+      "wins": 1298,
+      "losses": 11733,
+      "win_rate": 0.099609,
+      "ev_per_dollar": -0.808751,
+      "total_profit": -105388.4,
+      "final_capital": -104388.4,
+      "max_drawdown_pct": -105.3884,
+      "profit_factor": 0.101778,
+      "sharpe_ratio": 0.013278,
+      "wilson_95pct_ci": {
+        "lower": 0.094584,
+        "center": 0.099727,
+        "upper": 0.104869
+      },
+      "monte_carlo": {
+        "p5": -105386.8,
+        "p50": -104369.2,
+        "p95": -103350.64,
+        "mean": -104358.37,
+        "std": 637.22
+      }
+    },
+    "high_conf_0.20": {
+      "total_trades": 13029,
+      "wins": 1298,
+      "losses": 11731,
+      "win_rate": 0.099624,
+      "ev_per_dollar": -0.808722,
+      "total_profit": -105368.4,
+      "final_capital": -104368.4,
+      "max_drawdown_pct": -105.3684,
+      "profit_factor": 0.101795,
+      "sharpe_ratio": 0.013279,
+      "wilson_95pct_ci": {
+        "lower": 0.094599,
+        "center": 0.099742,
+        "upper": 0.104885
+      },
+      "monte_carlo": {
+        "p5": -105501.2,
+        "p50": -104406.8,
+        "p95": -103331.6,
+        "mean": -104392.57,
+        "std": 641.41
+      }
+    },
+    "high_conf_0.25": {
+      "total_trades": 12942,
+      "wins": 1294,
+      "losses": 11648,
+      "win_rate": 0.099985,
+      "ev_per_dollar": -0.80803,
+      "total_profit": -104575.2,
+      "final_capital": -103575.2,
+      "max_drawdown_pct": -104.5752,
+      "profit_factor": 0.102205,
+      "sharpe_ratio": 0.013316,
+      "wilson_95pct_ci": {
+        "lower": 0.094934,
+        "center": 0.100103,
+        "upper": 0.105272
+      },
+      "monte_carlo": {
+        "p5": -104612.0,
+        "p50": -103594.4,
+        "p95": -102537.44,
+        "mean": -103584.44,
+        "std": 637.42
+      }
+    },
+    "high_conf_0.30": {
+      "total_trades": 12645,
+      "wins": 1273,
+      "losses": 11372,
+      "win_rate": 0.100672,
+      "ev_per_dollar": -0.806709,
+      "total_profit": -102008.4,
+      "final_capital": -101008.4,
+      "max_drawdown_pct": -102.0084,
+      "profit_factor": 0.102986,
+      "sharpe_ratio": 0.014983,
+      "wilson_95pct_ci": {
+        "lower": 0.095548,
+        "center": 0.100793,
+        "upper": 0.106039
+      },
+      "monte_carlo": {
+        "p5": -102065.36,
+        "p50": -101027.6,
+        "p95": -99970.64,
+        "mean": -101027.56,
+        "std": 651.4
+      }
+    },
+    "sequence_match": {
+      "total_trades": 13031,
+      "wins": 1293,
+      "losses": 11738,
+      "win_rate": 0.099225,
+      "ev_per_dollar": -0.809488,
+      "total_profit": -105484.4,
+      "final_capital": -104484.4,
+      "max_drawdown_pct": -105.4844,
+      "profit_factor": 0.101343,
+      "sharpe_ratio": -0.007031,
+      "wilson_95pct_ci": {
+        "lower": 0.094209,
+        "center": 0.099343,
+        "upper": 0.104477
+      },
+      "monte_carlo": {
+        "p5": -105540.4,
+        "p50": -104503.6,
+        "p95": -103408.24,
+        "mean": -104496.13,
+        "std": 658.71
+      }
+    }
+  }
+}
