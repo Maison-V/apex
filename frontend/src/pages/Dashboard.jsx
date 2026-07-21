@@ -6,6 +6,8 @@ import WatchlistGrid from '../components/WatchlistGrid'
 import TechnicalsPanel from '../components/TechnicalsPanel'
 import FundamentalsPanel from '../components/FundamentalsPanel'
 import MarketMovers from '../components/MarketMovers'
+import LDPAnalyzer from '../components/LDPAnalyzer'
+import HFTConsole from '../components/HFTConsole'
 import {
   getWatchlist,
   getAllQuotes,
@@ -17,6 +19,7 @@ import {
 import { derivService } from '../services/derivService'
 
 export default function Dashboard() {
+  const [currentView, setCurrentView] = useState('dashboard')
   const [watchlist, setWatchlist] = useState({})
   const [quotes, setQuotes] = useState({})
   const [derivQuotes, setDerivQuotes] = useState({})
@@ -159,52 +162,68 @@ export default function Dashboard() {
     return () => unsub()
   }, [])
 
+  const mergedQuotes = useMemo(() => ({ ...quotes, ...derivQuotes }), [quotes, derivQuotes])
+
   const handleCategoryChange = (category) => {
     setActiveCategory(category)
     const firstSymbol = watchlist[category]?.[0]
     if (firstSymbol) setSelectedSymbol(firstSymbol)
   }
 
-  const mergedQuotes = useMemo(() => ({ ...quotes, ...derivQuotes }), [quotes, derivQuotes])
+  const viewTitle = currentView === 'dashboard' ? 'Market Dashboard'
+    : currentView === 'ldp' ? 'Last Digit Predictor'
+    : currentView === 'hft' ? 'HFT Console'
+    : 'Dashboard'
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       <div className="main-col">
-        <TopBar liveActive={liveActive} />
-        {!loadingCore && <TickerTape quotes={mergedQuotes} />}
-
-        <div className="dash-body">
-          {loadingCore ? (
-            <div className="screen-center" style={{ minHeight: '40vh' }}>
-              <div className="loader-glyph" aria-label="Loading dashboard">
-                <span /><span /><span />
-              </div>
-            </div>
-          ) : (
-            <>
-              <WatchlistGrid
-                watchlist={watchlist}
-                quotes={mergedQuotes}
-                activeCategory={activeCategory}
-                onCategoryChange={handleCategoryChange}
-                selectedSymbol={selectedSymbol}
-                onSelectSymbol={setSelectedSymbol}
-              />
-
-              <div className="section-block">
-                <h3 className="section-title">Analysis</h3>
-                <p className="section-sub">Technical indicators and fundamentals for the selected symbol</p>
-                <div className="panels-grid">
-                  <TechnicalsPanel symbol={selectedSymbol} technicals={technicals} loading={loadingTechnicals} />
-                  <FundamentalsPanel symbol={selectedSymbol} fundamentals={fundamentals} loading={loadingFundamentals} />
+        <TopBar liveActive={currentView === 'dashboard' && liveActive} title={viewTitle} />
+        {currentView === 'dashboard' ? (
+          <>
+            {!loadingCore && <TickerTape quotes={mergedQuotes} />}
+            <div className="dash-body">
+              {loadingCore ? (
+                <div className="screen-center" style={{ minHeight: '40vh' }}>
+                  <div className="loader-glyph" aria-label="Loading dashboard">
+                    <span /><span /><span />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <WatchlistGrid
+                    watchlist={watchlist}
+                    quotes={mergedQuotes}
+                    activeCategory={activeCategory}
+                    onCategoryChange={handleCategoryChange}
+                    selectedSymbol={selectedSymbol}
+                    onSelectSymbol={setSelectedSymbol}
+                  />
 
-              <MarketMovers movers={movers} loading={false} />
-            </>
-          )}
-        </div>
+                  <div className="section-block">
+                    <h3 className="section-title">Analysis</h3>
+                    <p className="section-sub">Technical indicators and fundamentals for the selected symbol</p>
+                    <div className="panels-grid">
+                      <TechnicalsPanel symbol={selectedSymbol} technicals={technicals} loading={loadingTechnicals} />
+                      <FundamentalsPanel symbol={selectedSymbol} fundamentals={fundamentals} loading={loadingFundamentals} />
+                    </div>
+                  </div>
+
+                  <MarketMovers movers={movers} loading={false} />
+                </>
+              )}
+            </div>
+          </>
+        ) : currentView === 'ldp' ? (
+          <div className="dash-body">
+            <LDPAnalyzer watchlist={watchlist} />
+          </div>
+        ) : (
+          <div className="dash-body">
+            <HFTConsole watchlist={watchlist} />
+          </div>
+        )}
       </div>
     </div>
   )
