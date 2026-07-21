@@ -133,20 +133,21 @@ export default function Dashboard() {
   useEffect(() => {
     const unsub = derivService.subscribe((symbol, price, timestamp) => {
       setQuotes((prev) => {
-        const prevQuote = prev[symbol]
-        const change = prevQuote?.price != null ? price - prevQuote.price : 0
-        const changePct = prevQuote?.price ? (change / prevQuote.price) * 100 : 0
+        const wasReal = prev[symbol]?.source === 'deriv'
+        const prevPrice = prev[symbol]?.price
+        const change = wasReal && prevPrice != null ? price - prevPrice : 0
+        const changePct = wasReal && prevPrice ? (change / prevPrice) * 100 : 0
         return {
           ...prev,
           [symbol]: {
-            ...(prevQuote || {}),
+            ...(prev[symbol] || {}),
             symbol,
             price,
             change,
             change_pct: changePct,
-            low: prevQuote?.low != null && prevQuote.low < price ? prevQuote.low : price,
-            high: prevQuote?.high != null && prevQuote.high > price ? prevQuote.high : price,
-            volume: prevQuote?.volume ?? 0,
+            low: prev[symbol]?.low != null && prev[symbol].low < price ? prev[symbol].low : price,
+            high: prev[symbol]?.high != null && prev[symbol].high > price ? prev[symbol].high : price,
+            volume: prev[symbol]?.volume ?? 0,
             source: 'deriv',
             timestamp,
           },

@@ -13,14 +13,12 @@ class DerivService {
       const res = await fetch('/api/deriv/config')
       this.config = await res.json()
     } catch {
-      this.config = { token: '', app_id: '1089', ws_url: 'wss://ws.deriv.com/websockets/v3' }
+      this.config = { public_ws: 'wss://api.derivws.com/trading/v1/options/ws/public' }
     }
   }
 
   wsUrl() {
-    if (!this.config) return `wss://ws.deriv.com/websockets/v3?app_id=1089`
-    const appId = this.config.app_id || '1089'
-    return `${this.config.ws_url}?app_id=${appId}`
+    return this.config?.public_ws || 'wss://api.derivws.com/trading/v1/options/ws/public'
   }
 
   connect(symbols) {
@@ -29,9 +27,6 @@ class DerivService {
     try {
       this.ws = new WebSocket(this.wsUrl())
       this.ws.onopen = () => {
-        if (this.config?.token) {
-          this.ws.send(JSON.stringify({ authorize: this.config.token }))
-        }
         this.symbols.forEach((s) => {
           this.ws.send(JSON.stringify({ ticks: s }))
         })
@@ -40,9 +35,11 @@ class DerivService {
         try {
           const data = JSON.parse(event.data)
           if (data.tick) {
-            const { symbol, quote, epoch } = data.tick
+            const { symbol, quote, epoch, ask, bid } = data.tick
             this.prices[symbol] = {
               price: quote,
+              ask,
+              bid,
               timestamp: epoch
                 ? new Date(epoch * 1000).toISOString()
                 : new Date().toISOString(),

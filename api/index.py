@@ -150,7 +150,12 @@ async def market_price(symbol: str):
 @app.get("/api/deriv/config")
 async def deriv_config():
     token = os.environ.get("DERIV_TOKEN", "")
-    return {"token": token, "app_id": "1089", "ws_url": "wss://ws.deriv.com/websockets/v3"}
+    return {
+        "token": token,
+        "app_id": "1089",
+        "public_ws": "wss://api.derivws.com/trading/v1/options/ws/public",
+        "legacy_ws": "wss://ws.binaryws.com/websockets/v3",
+    }
 
 
 @app.get("/api/market/movers")
