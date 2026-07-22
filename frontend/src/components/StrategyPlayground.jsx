@@ -108,7 +108,7 @@ function formatTime(ts) {
 }
 
 export default function StrategyPlayground({ watchlist }) {
-  const [symbol, setSymbol] = useState('R_75')
+  const [symbol, setSymbol] = useState('1HZ75V')
   const [strategy, setStrategy] = useState('momentum')
   const [duration, setDuration] = useState(5)
   const [durationUnit, setDurationUnit] = useState('t')
@@ -153,6 +153,9 @@ export default function StrategyPlayground({ watchlist }) {
       if (!mounted) return
       const sorted = symbols.sort((a, b) => a.market.localeCompare(b.market) || a.underlying_symbol.localeCompare(b.underlying_symbol))
       setAvailableSymbols(sorted)
+      // Auto-select a 1s volatility index
+      const oneSec = sorted.find(s => s.underlying_symbol.includes('1HZ') && !s.is_trading_suspended)
+      if (oneSec) setSymbol(oneSec.underlying_symbol)
       setSymbolsLoading(false)
     }).catch(() => {
       if (mounted) setSymbolsLoading(false)
