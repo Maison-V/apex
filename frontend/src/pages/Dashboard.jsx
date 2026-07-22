@@ -46,26 +46,50 @@ export default function Dashboard() {
     async function loadCore() {
       const [wl, q, mv] = await Promise.all([getWatchlist(), getAllQuotes(), getMarketMovers()])
       if (!mounted) return
-      setWatchlist(wl)
-      setQuotes(q)
-      setMovers(mv)
-      setLoadingCore(false)
-      const firstSymbol = wl[activeCategory]?.[0]
-      if (firstSymbol) setSelectedSymbol(firstSymbol)
 
       await derivService.init()
       const activeSymbolsList = await derivService.fetchActiveSymbols('brief').catch(() => [])
-      const syntheticSymbols = activeSymbolsList
-        .filter(s => s.market === 'synthetic_index' && !s.is_trading_suspended)
-        .map(s => s.underlying_symbol)
-      if (syntheticSymbols.length === 0) {
+
+      // Build watchlist categories from active symbols
+      const derivWatchlist = {}
+      const marketMap = {
+        synthetic_index: 'synthetic',
+        forex: 'forex',
+        commodities: 'commodities',
+        stock_index: 'indices',
+        cryptocurrency: 'crypto',
+      }
+      activeSymbolsList.forEach(s => {
+        if (s.is_trading_suspended) return
+        const cat = marketMap[s.market] || s.market
+        if (!derivWatchlist[cat]) derivWatchlist[cat] = []
+        derivWatchlist[cat].push(s.underlying_symbol)
+      })
+
+      // Merge deriv symbols into watchlist, preserving non-deriv categories
+      const merged = { ...wl }
+      for (const [cat, syms] of Object.entries(derivWatchlist)) {
+        const existing = merged[cat] || []
+        const mergedSyms = [...new Set([...existing, ...syms])]
+        merged[cat] = mergedSyms
+      }
+      setWatchlist(merged)
+
+      setQuotes(q)
+      setMovers(mv)
+      setLoadingCore(false)
+      const firstSymbol = merged[activeCategory]?.[0]
+      if (firstSymbol) setSelectedSymbol(firstSymbol)
+
+      const syntheticSymbols = derivWatchlist.synthetic ?? []
+      derivSymbolsRef.current = new Set(syntheticSymbols)
+      if (syntheticSymbols.length > 0) {
+        derivService.connect(syntheticSymbols)
+      } else {
         const wlSynthetic = wl.synthetic ?? []
         derivSymbolsRef.current = new Set(wlSynthetic)
         if (wlSynthetic.length > 0) derivService.connect(wlSynthetic)
         else setDerivQuotes({})
-      } else {
-        derivSymbolsRef.current = new Set(syntheticSymbols)
-        derivService.connect(syntheticSymbols)
       }
     }
     loadCore()

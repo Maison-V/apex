@@ -31,15 +31,20 @@ class DerivService {
   }
 
   connect(symbols) {
-    this.symbols = symbols
-    if (this.ws) return
-    if (!this.digitHistory[symbols[0]]) {
-      symbols.forEach((s) => {
-        if (!this.digitHistory[s]) {
-          this.digitHistory[s] = []
-          this.tickHistory[s] = []
-        }
+    const newSymbols = symbols.filter(s => !this.symbols.includes(s))
+    if (!newSymbols.length && this.ws) return
+    this.symbols = [...new Set([...this.symbols, ...symbols])]
+    newSymbols.forEach((s) => {
+      if (!this.digitHistory[s]) {
+        this.digitHistory[s] = []
+        this.tickHistory[s] = []
+      }
+    })
+    if (this.ws) {
+      newSymbols.forEach((s) => {
+        this.ws.send(JSON.stringify({ ticks: s }))
       })
+      return
     }
     try {
       this.ws = new WebSocket(this.wsUrl())
