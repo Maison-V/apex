@@ -53,13 +53,19 @@ export default function Dashboard() {
       const firstSymbol = wl[activeCategory]?.[0]
       if (firstSymbol) setSelectedSymbol(firstSymbol)
 
-      const syntheticSymbols = wl.synthetic ?? []
-      derivSymbolsRef.current = new Set(syntheticSymbols)
-      if (syntheticSymbols.length > 0) {
-        await derivService.init()
-        derivService.connect(syntheticSymbols)
+      await derivService.init()
+      const activeSymbolsList = await derivService.fetchActiveSymbols('brief').catch(() => [])
+      const syntheticSymbols = activeSymbolsList
+        .filter(s => s.market === 'synthetic_index' && !s.is_trading_suspended)
+        .map(s => s.underlying_symbol)
+      if (syntheticSymbols.length === 0) {
+        const wlSynthetic = wl.synthetic ?? []
+        derivSymbolsRef.current = new Set(wlSynthetic)
+        if (wlSynthetic.length > 0) derivService.connect(wlSynthetic)
+        else setDerivQuotes({})
       } else {
-        setDerivQuotes({})
+        derivSymbolsRef.current = new Set(syntheticSymbols)
+        derivService.connect(syntheticSymbols)
       }
     }
     loadCore()

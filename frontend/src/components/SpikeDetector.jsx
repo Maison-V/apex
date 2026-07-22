@@ -44,17 +44,20 @@ export default function SpikeDetector({ watchlist }) {
   const [volSymbols, setVolSymbols] = useState(null)
 
   const syntheticSymbols = watchlist?.synthetic ?? FALLBACK_SYNTHETIC
-  const allSymbols = volSymbols ?? FALLBACK_SYNTHETIC
+  const allSymbols = volSymbols ?? syntheticSymbols
 
   useEffect(() => {
-    fetch('/api/deriv/symbols')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.symbols?.length) {
-          setVolSymbols(data.symbols.map((s) => s.symbol))
-        }
-      })
-      .catch(() => {})
+    let mounted = true
+    async function load() {
+      const symbols = await derivService.fetchActiveSymbols('brief').catch(() => [])
+      if (!mounted) return
+      const filtered = symbols
+        .filter(s => s.market === 'synthetic_index' && !s.is_trading_suspended)
+        .map(s => s.underlying_symbol)
+      if (filtered.length > 0) setVolSymbols(filtered)
+    }
+    load()
+    return () => { mounted = false }
   }, [])
   const pricesRef = useRef([])
   const spikeCountRef = useRef(0)

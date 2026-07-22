@@ -58,11 +58,12 @@ export default function LDPAnalyzer({ watchlist }) {
   const [hlAccuracy, setHlAccuracy] = useState({ correct: 0, total: 0, pct: 0 })
   const [history, setHistory] = useState([])
   const [modelMeta, setModelMeta] = useState(null)
+  const [availableSymbols, setAvailableSymbols] = useState(null)
   const predictionRef = useRef(null)
   const oePredictionRef = useRef(null)
   const hlPredictionRef = useRef(null)
 
-  const syntheticSymbols = watchlist?.synthetic ?? ['R_75', 'R_100', 'BOOM500', 'CRASH500']
+  const syntheticSymbols = availableSymbols ?? watchlist?.synthetic ?? ['R_75', 'R_100', 'BOOM500', 'CRASH500']
 
   const digits = useMemo(() => derivService.getDigits(symbol), [symbol])
   const displayDigits = useMemo(
@@ -80,7 +81,13 @@ export default function LDPAnalyzer({ watchlist }) {
     let mounted = true
     async function init() {
       await derivService.init()
-      derivService.connect(syntheticSymbols)
+      const symbols = await derivService.fetchActiveSymbols('brief').catch(() => [])
+      if (!mounted) return
+      const filtered = symbols
+        .filter(s => s.market === 'synthetic_index' && !s.is_trading_suspended)
+        .map(s => s.underlying_symbol)
+      if (filtered.length > 0) setAvailableSymbols(filtered)
+      derivService.connect(filtered.length > 0 ? filtered : syntheticSymbols)
       if (mounted) setConnected(true)
     }
     init()

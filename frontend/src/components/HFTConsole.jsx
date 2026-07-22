@@ -6,17 +6,24 @@ export default function HFTConsole({ watchlist }) {
   const [ticks, setTicks] = useState([])
   const [latency, setLatency] = useState([])
   const [stats, setStats] = useState({ tps: 0, avgLatency: 0, maxLatency: 0, totalTicks: 0 })
+  const [availableSymbols, setAvailableSymbols] = useState(null)
   const lastTs = useRef(null)
   const tickCount = useRef(0)
   const secondStart = useRef(Date.now())
 
-  const syntheticSymbols = watchlist?.synthetic ?? ['R_75', 'R_100', 'BOOM500', 'CRASH500']
+  const syntheticSymbols = availableSymbols ?? watchlist?.synthetic ?? ['R_75', 'R_100', 'BOOM500', 'CRASH500']
 
   useEffect(() => {
     let mounted = true
     async function init() {
       await derivService.init()
-      derivService.connect(syntheticSymbols)
+      const symbols = await derivService.fetchActiveSymbols('brief').catch(() => [])
+      if (!mounted) return
+      const filtered = symbols
+        .filter(s => s.market === 'synthetic_index' && !s.is_trading_suspended)
+        .map(s => s.underlying_symbol)
+      setAvailableSymbols(filtered.length > 0 ? filtered : null)
+      derivService.connect(filtered.length > 0 ? filtered : syntheticSymbols)
     }
     init()
     return () => { mounted = false }
