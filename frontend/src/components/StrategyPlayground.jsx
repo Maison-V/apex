@@ -123,6 +123,8 @@ export default function StrategyPlayground({ watchlist }) {
   const [accuracy, setAccuracy] = useState({ correct: 0, total: 0, pct: 0 })
   const [pendingTrade, setPendingTrade] = useState(false)
   const [lastTradeResult, setLastTradeResult] = useState(null)
+  const [availableSymbols, setAvailableSymbols] = useState([])
+  const [symbolsLoading, setSymbolsLoading] = useState(false)
 
   const ticksRef = useRef([])
   const pricesRef = useRef([])
@@ -142,6 +144,21 @@ export default function StrategyPlayground({ watchlist }) {
   const signalRef = useRef(null)
 
   const syntheticSymbols = watchlist?.synthetic ?? ['R_75', 'R_100', 'BOOM500', 'CRASH500']
+
+  // Fetch active symbols from API on mount
+  useEffect(() => {
+    let mounted = true
+    setSymbolsLoading(true)
+    derivService.fetchActiveSymbols('brief').then((symbols) => {
+      if (!mounted) return
+      const sorted = symbols.sort((a, b) => a.market.localeCompare(b.market) || a.underlying_symbol.localeCompare(b.underlying_symbol))
+      setAvailableSymbols(sorted)
+      setSymbolsLoading(false)
+    }).catch(() => {
+      if (mounted) setSymbolsLoading(false)
+    })
+    return () => { mounted = false }
+  }, [])
 
   // Connect to Deriv ticks
   useEffect(() => {
@@ -428,7 +445,30 @@ export default function StrategyPlayground({ watchlist }) {
             <div className="settings-row">
               <label className="settings-label">Symbol</label>
               <select value={symbol} onChange={(e) => setSymbol(e.target.value)} className="strategy-select">
-                {syntheticSymbols.map(s => <option key={s} value={s}>{s}</option>)}
+                {symbolsLoading ? (
+                  <option value="">Loading symbols...</option>
+                ) : availableSymbols.length > 0 ? (
+                  (() => {
+                    const groups = {}
+                    availableSymbols.forEach(s => {
+                      const m = s.market || 'other'
+                      if (!groups[m]) groups[m] = []
+                      if (!s.is_trading_suspended) groups[m].push(s)
+                    })
+                    const sorted = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]))
+                    return sorted.flatMap(([market, syms]) => [
+                      <optgroup key={market} label={market.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}>
+                        {syms.map(s => (
+                          <option key={s.underlying_symbol} value={s.underlying_symbol}>
+                            {s.underlying_symbol} — {s.underlying_symbol_name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ])
+                  })()
+                ) : (
+                  syntheticSymbols.map(s => <option key={s} value={s}>{s}</option>)
+                )}
               </select>
             </div>
             <div className="settings-row">

@@ -130,6 +130,37 @@ class DerivService {
     }
   }
 
+  async fetchActiveSymbols(detail = 'full') {
+    return new Promise((resolve, reject) => {
+      try {
+        const ws = new WebSocket(this.wsUrl())
+        const timeout = setTimeout(() => {
+          ws.close()
+          reject(new Error('Timeout fetching active symbols'))
+        }, 10000)
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ active_symbols: detail }))
+        }
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            if (data.msg_type === 'active_symbols') {
+              clearTimeout(timeout)
+              ws.close()
+              resolve(data.active_symbols || [])
+            }
+          } catch { /* ignore */ }
+        }
+        ws.onerror = () => {
+          clearTimeout(timeout)
+          reject(new Error('WebSocket error fetching active symbols'))
+        }
+      } catch (err) {
+        reject(err)
+      }
+    })
+  }
+
   scheduleReconnect() {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.reconnectTimer = setTimeout(() => {
