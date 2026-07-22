@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 
 const NAV = [
   { id: 'dashboard', label: 'Market dashboard', section: 'Overview' },
+  { id: 'escape', label: 'APEX Escape Plan', section: 'Trading' },
   { id: 'hft', label: 'HFT Console', section: 'Trading' },
   { id: 'ldp', label: 'Last Digit Predictor', section: 'Trading' },
   { id: 'strategy', label: 'Strategy Playground', section: 'Trading' },

@@ -1,39 +1,132 @@
 class TradingService {
   constructor() {
     this.ws = null
-    this.apiToken = null
+    this._pat = null
+    this._appId = null
+    this._accountId = null
+    this._accountType = 'demo'
     this.connected = false
     this.balances = {}
     this.proposals = new Map()
     this.contracts = []
     this.listeners = new Set()
+    this.reconnectTimer = null
+    this._intentionalClose = false
   }
 
-  setToken(token) {
-    this.apiToken = token
+  setPat(pat) {
+    this._pat = pat
   }
 
-  connect() {
+  setAppId(id) {
+    this._appId = id
+  }
+
+  setAccountType(type) {
+    this._accountType = type || 'demo'
+  }
+
+  isConnected() {
+    return this.connected
+  }
+
+  getBalance() {
+    return this.balances
+  }
+
+  _fail(message) {
+    clearTimeout(this._connectTimeout)
+    this._intentionalClose = true
+    this.connected = false
+    try { this.ws?.close() } catch {}
+    this.ws = null
+    this.notify({ type: 'error', message })
+  }
+
+  async #fetchAccounts() {
+    const appId = this._appId || '1089'
+    const res = await fetch('https://api.derivws.com/trading/v1/options/accounts', {
+      headers: {
+        'Authorization': `Bearer ${this._pat}`,
+        'Deriv-App-ID': appId,
+      }
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(text || `HTTP ${res.status}`)
+    }
+    const json = await res.json()
+    return json.data || []
+  }
+
+  async #getOTP(accountId) {
+    const appId = this._appId || '1089'
+    const res = await fetch(`https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this._pat}`,
+        'Deriv-App-ID': appId,
+        'Content-Type': 'application/json',
+      },
+      body: '{}'
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(text || `HTTP ${res.status}`)
+    }
+    const json = await res.json()
+    return json.data.url
+  }
+
+  async connect(accountType) {
     if (this.ws) return
-    if (!this.apiToken) return
+    if (!this._pat) return
+    this._intentionalClose = false
+    if (accountType) this._accountType = accountType
+
+    this.notify({ type: 'status', message: 'Fetching accounts...' })
 
     try {
-      this.ws = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public')
-      this.ws.onopen = () => {
-        this.ws.send(JSON.stringify({ authorize: this.apiToken }))
+      const accounts = await this.#fetchAccounts()
+      const targetType = this._accountType === 'demo' ? 'demo' : 'real'
+      const acct = accounts.find(a => a.account_type === targetType) || accounts[0]
+
+      if (!acct) {
+        this._fail('No Deriv account found')
+        return
       }
+
+      this._accountId = acct.account_id
+      this.balances = {
+        balance: parseFloat(acct.balance) || 0,
+        currency: acct.currency || 'USD',
+        loginid: acct.account_id,
+        account_type: acct.account_type,
+      }
+
+      this.notify({ type: 'status', message: 'Connecting...' })
+      const wsUrl = await this.#getOTP(this._accountId)
+
+      this.ws = new WebSocket(wsUrl)
+
+      this._connectTimeout = setTimeout(() => {
+        if (!this.connected) {
+          this._fail('Connection timed out')
+        }
+      }, 15000)
+
+      this.ws.onopen = () => {
+        clearTimeout(this._connectTimeout)
+        this.connected = true
+        this.notify({ type: 'connected', ...this.balances })
+      }
+
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          if (data.msg_type === 'authorize') {
-            this.connected = true
-            this.balances = {
-              balance: data.authorize?.balance,
-              currency: data.authorize?.currency,
-              loginid: data.authorize?.loginid,
-            }
-            this.notify({ type: 'connected', ...this.balances })
-          } else if (data.msg_type === 'buy') {
+          if (data.error) return
+
+          if (data.msg_type === 'buy') {
             const contract = {
               id: data.buy?.contract_id,
               transactionId: data.buy?.transaction_id,
@@ -56,22 +149,42 @@ class TradingService {
           }
         } catch { /* ignore */ }
       }
+
       this.ws.onclose = () => {
         this.connected = false
         this.ws = null
+        if (!this._intentionalClose) {
+          this.notify({ type: 'disconnected' })
+          this.scheduleReconnect()
+        }
       }
+
       this.ws.onerror = () => {
         this.ws?.close()
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      this._fail(err.message || 'Connection failed')
+    }
   }
 
   disconnect() {
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
-    }
+    this._intentionalClose = true
+    clearTimeout(this._connectTimeout)
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    try { this.ws?.close() } catch {}
+    this.ws = null
     this.connected = false
+    this.notify({ type: 'disconnected' })
+  }
+
+  scheduleReconnect() {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.notify({ type: 'status', message: 'Reconnecting in 3s...' })
+    this.reconnectTimer = setTimeout(() => {
+      if (this._pat && !this._intentionalClose) {
+        this.connect()
+      }
+    }, 3000)
   }
 
   async getProposal({ contract_type, symbol, amount, duration, duration_unit, barrier, currency = 'USD' }) {
@@ -92,7 +205,7 @@ class TradingService {
         currency,
         duration,
         duration_unit,
-        symbol,
+        underlying_symbol: symbol,
         ...(barrier != null ? { barrier } : {}),
       }))
       setTimeout(() => {
@@ -106,9 +219,11 @@ class TradingService {
     if (!this.connected || !this.ws) return null
     return new Promise((resolve) => {
       const handler = (data) => {
-        if (data.type === 'contract_opened' || data.type === 'contract_update') {
-          this.listeners.delete(handler)
-          resolve(data)
+        if (data.type === 'contract_opened') {
+          if (data.id || data.transactionId) {
+            this.listeners.delete(handler)
+            resolve(data)
+          }
         }
       }
       this.listeners.add(handler)
@@ -117,6 +232,51 @@ class TradingService {
         this.listeners.delete(handler)
         resolve(null)
       }, 10000)
+    })
+  }
+
+  async placeTrade({ contract_type, symbol, amount, duration, duration_unit, currency = 'USD' }) {
+    if (!this.connected || !this.ws) return null
+
+    const proposal = await this.getProposal({ contract_type, symbol, amount, duration, duration_unit, currency })
+    if (!proposal) return null
+
+    const buyResult = await this.buyContract(proposal.id, amount)
+    if (!buyResult) return null
+
+    const contractId = buyResult.id
+    const transactionId = buyResult.transactionId
+
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this.listeners.delete(handler)
+        resolve({ contractId, transactionId, status: 'timeout', profit: 0 })
+      }, 60000)
+
+      const handler = (data) => {
+        if (data.type === 'contract_update') {
+          const c = data.contract
+          if (c && c.contract_id === contractId) {
+            if (c.status === 'won' || c.status === 'lost') {
+              clearTimeout(timeout)
+              this.listeners.delete(handler)
+              if (c.balance_after != null) {
+                this.balances.balance = c.balance_after
+              }
+              resolve({
+                contractId: c.contract_id,
+                transactionId,
+                status: c.status,
+                profit: c.profit || 0,
+                buyPrice: c.buy_price,
+                sellPrice: c.sell_price,
+                balanceAfter: c.balance_after,
+              })
+            }
+          }
+        }
+      }
+      this.listeners.add(handler)
     })
   }
 

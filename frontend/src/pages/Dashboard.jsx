@@ -10,6 +10,7 @@ import LDPAnalyzer from '../components/LDPAnalyzer'
 import HFTConsole from '../components/HFTConsole'
 import StrategyPlayground from '../components/StrategyPlayground'
 import SpikeDetector from '../components/SpikeDetector'
+import ApexEscapePlan from '../components/ApexEscapePlan'
 import {
   getWatchlist,
   getAllQuotes,
@@ -173,6 +174,7 @@ export default function Dashboard() {
   }
 
   const viewTitle = currentView === 'dashboard' ? 'Market Dashboard'
+    : currentView === 'escape' ? 'APEX Escape Plan'
     : currentView === 'ldp' ? 'Last Digit Predictor'
     : currentView === 'hft' ? 'HFT Console'
     : currentView === 'strategy' ? 'Strategy Playground'
@@ -226,6 +228,10 @@ export default function Dashboard() {
         ) : currentView === 'spike' ? (
           <div className="dash-body">
             <SpikeDetector watchlist={watchlist} />
+          </div>
+        ) : currentView === 'escape' ? (
+          <div className="dash-body">
+            <ApexEscapePlan watchlist={watchlist} />
           </div>
         ) : currentView === 'strategy' ? (
           <div className="dash-body">

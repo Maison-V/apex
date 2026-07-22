@@ -126,8 +126,20 @@ export default function StrategyPlayground({ watchlist }) {
 
   const ticksRef = useRef([])
   const pricesRef = useRef([])
-  const signalRef = useRef(null)
   const accuracyRef = useRef({ correct: 0, total: 0 })
+
+  // Auto margin-flip mode
+  const [tradeMode, setTradeMode] = useState('manual')
+  const [marginPercent, setMarginPercent] = useState(80)
+  const [flipMultiplier, setFlipMultiplier] = useState(2)
+  const [autoRunning, setAutoRunning] = useState(false)
+  const [autoSession, setAutoSession] = useState(null)
+
+  const pendingTradeRef = useRef(false)
+  const autoRunningRef = useRef(false)
+  const marginPercentRef = useRef(80)
+  const balanceAmountRef = useRef(0)
+  const signalRef = useRef(null)
 
   const syntheticSymbols = watchlist?.synthetic ?? ['R_75', 'R_100', 'BOOM500', 'CRASH500']
 
@@ -238,6 +250,109 @@ export default function StrategyPlayground({ watchlist }) {
     setPendingTrade(false)
   }
 
+  // Sync balance and margin to refs for auto-trade engine
+  useEffect(() => {
+    if (balance) balanceAmountRef.current = balance.balance
+  }, [balance])
+  useEffect(() => { marginPercentRef.current = marginPercent }, [marginPercent])
+
+  const startAutoTrade = () => {
+    if (!connected || !balance) return
+    balanceAmountRef.current = balance.balance
+    pendingTradeRef.current = false
+    setAutoRunning(true)
+  }
+
+  const stopAutoTrade = () => {
+    autoRunningRef.current = false
+    setAutoRunning(false)
+  }
+
+  // Auto-trade engine
+  useEffect(() => {
+    if (!autoRunning || !connected) return
+    autoRunningRef.current = true
+
+    const startBal = balanceAmountRef.current
+    const session = {
+      startBalance: startBal,
+      currentBalance: startBal,
+      peakBalance: startBal,
+      trades: 0,
+      wins: 0,
+      losses: 0,
+      totalProfit: 0,
+      maxDrawdown: 0,
+      status: 'running',
+    }
+    setAutoSession({ ...session })
+
+    let stopped = false
+
+    const loop = async () => {
+      while (autoRunningRef.current && !stopped) {
+        const sig = signalRef.current
+        if (!sig || pendingTradeRef.current) {
+          await new Promise(r => setTimeout(r, 200))
+          continue
+        }
+
+        const bal = balanceAmountRef.current
+        if (bal < 1) {
+          session.status = 'bust'
+          session.currentBalance = 0
+          setAutoSession({ ...session })
+          setAutoRunning(false)
+          autoRunningRef.current = false
+          return
+        }
+
+        const targetBal = startBal * flipMultiplier
+        if (bal >= targetBal) {
+          session.status = 'target_hit'
+          setAutoSession({ ...session })
+          setAutoRunning(false)
+          autoRunningRef.current = false
+          return
+        }
+
+        pendingTradeRef.current = true
+        const stake = Math.max(Math.round(bal * marginPercentRef.current / 100 * 100) / 100, 1)
+
+        try {
+          const result = await tradingService.placeTrade({
+            contract_type: sig.direction,
+            symbol,
+            amount: stake,
+            duration: 1,
+            duration_unit: 't',
+          })
+
+          if (result && !stopped) {
+            const pnl = result.profit || 0
+            session.trades++
+            if (result.status === 'won') session.wins++
+            else session.losses++
+            session.totalProfit += pnl
+            const newBal = result.balanceAfter ?? (bal + pnl)
+            balanceAmountRef.current = newBal
+            session.currentBalance = newBal
+            if (newBal > session.peakBalance) session.peakBalance = newBal
+            const dd = session.peakBalance > 0 ? (session.peakBalance - newBal) / session.peakBalance * 100 : 0
+            if (dd > session.maxDrawdown) session.maxDrawdown = dd
+            setAutoSession({ ...session })
+          }
+        } catch {
+          // trade failed, continue loop
+        }
+        pendingTradeRef.current = false
+      }
+    }
+
+    loop()
+    return () => { stopped = true }
+  }, [autoRunning, connected, symbol, flipMultiplier])
+
   // Track signal accuracy
   useEffect(() => {
     if (!signal || pricesRef.current.length < 2) return
@@ -317,23 +432,109 @@ export default function StrategyPlayground({ watchlist }) {
                 {SIGNAL_STRATEGIES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
+
+            {/* Trade Mode Toggle */}
             <div className="settings-row">
-              <label className="settings-label">Duration</label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input type="number" value={duration} onChange={(e) => setDuration(Number(e.target.value))} min={1} max={100}
-                  className="strategy-input-number" style={{ width: 80, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-                />
-                <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value)} className="strategy-select" style={{ width: 100 }}>
-                  {DURATION_UNITS.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
-                </select>
+              <label className="settings-label">Trade Mode</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button
+                  onClick={() => setTradeMode('manual')}
+                  className="btn"
+                  style={{
+                    padding: '4px 12px', fontSize: 12, borderRadius: 4,
+                    background: tradeMode === 'manual' ? 'var(--accent)' : 'var(--surface)',
+                    color: tradeMode === 'manual' ? '#000' : 'var(--text)',
+                    border: '1px solid var(--border)', cursor: 'pointer',
+                  }}
+                >Manual</button>
+                <button
+                  onClick={() => setTradeMode('margin')}
+                  className="btn"
+                  style={{
+                    padding: '4px 12px', fontSize: 12, borderRadius: 4,
+                    background: tradeMode === 'margin' ? 'var(--accent)' : 'var(--surface)',
+                    color: tradeMode === 'margin' ? '#000' : 'var(--text)',
+                    border: '1px solid var(--border)', cursor: 'pointer',
+                  }}
+                >Auto Margin</button>
               </div>
             </div>
-            <div className="settings-row">
-              <label className="settings-label">Bet Amount</label>
-              <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} min={1} max={100}
-                className="strategy-input-number" style={{ width: 120, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-              />
-            </div>
+
+            {tradeMode === 'manual' && (
+              <>
+                <div className="settings-row">
+                  <label className="settings-label">Duration</label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input type="number" value={duration} onChange={(e) => setDuration(Number(e.target.value))} min={1} max={100}
+                      className="strategy-input-number" style={{ width: 80, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                    />
+                    <select value={durationUnit} onChange={(e) => setDurationUnit(e.target.value)} className="strategy-select" style={{ width: 100 }}>
+                      {DURATION_UNITS.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="settings-row">
+                  <label className="settings-label">Bet Amount</label>
+                  <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} min={1} max={100}
+                    className="strategy-input-number" style={{ width: 120, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                  />
+                </div>
+              </>
+            )}
+
+            {tradeMode === 'margin' && (
+              <>
+                <div className="settings-row">
+                  <label className="settings-label">Margin %</label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input type="range" min={5} max={100} value={marginPercent}
+                      onChange={(e) => setMarginPercent(Number(e.target.value))}
+                      style={{ width: 100 }} />
+                    <span style={{ width: 40, textAlign: 'right', fontWeight: 600 }}>{marginPercent}%</span>
+                  </div>
+                </div>
+                <div className="settings-row">
+                  <label className="settings-label">Flip Target</label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input type="number" value={flipMultiplier} onChange={(e) => setFlipMultiplier(Number(e.target.value))} min={1.1} max={100} step={0.1}
+                      className="strategy-input-number" style={{ width: 80, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>x</span>
+                  </div>
+                </div>
+                <div className="settings-row">
+                  <label className="settings-label">Auto Trade</label>
+                  {!autoRunning ? (
+                    <button
+                      onClick={startAutoTrade}
+                      disabled={!connected}
+                      className="btn"
+                      style={{
+                        padding: '6px 16px', fontSize: 13, borderRadius: 4,
+                        background: '#2ecc71', color: 'white', border: 'none', cursor: 'pointer',
+                        opacity: !connected ? 0.5 : 1,
+                      }}
+                    >
+                      {!connected ? 'Connect First' : 'Start Auto Flip'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopAutoTrade}
+                      className="btn"
+                      style={{
+                        padding: '6px 16px', fontSize: 13, borderRadius: 4,
+                        background: '#e74c3c', color: 'white', border: 'none', cursor: 'pointer',
+                      }}
+                    >Stop Auto Flip</button>
+                  )}
+                </div>
+                {autoRunning && (
+                  <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 6, background: 'rgba(46,204,113,0.1)', border: '1px solid rgba(46,204,113,0.3)' }}>
+                    <div style={{ fontSize: 12, color: '#2ecc71', fontWeight: 600 }}>● Auto-trading active — compounding {marginPercent}% margin on {symbol}</div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
@@ -342,7 +543,62 @@ export default function StrategyPlayground({ watchlist }) {
           <div className="section-block" style={{ marginBottom: 16 }}>
             <h3 className="section-title">Live Signal</h3>
             <p className="section-sub">Current price: {recentPrice?.toFixed(2) ?? '—'}</p>
-            {signal ? (
+
+            {/* Auto Session Stats */}
+            {autoRunning && autoSession && (
+              <div style={{
+                padding: 16, borderRadius: 8, marginTop: 8, marginBottom: 12,
+                background: autoSession.status === 'target_hit' ? 'rgba(46,204,113,0.15)' : autoSession.status === 'bust' ? 'rgba(231,76,60,0.15)' : 'rgba(52,152,219,0.1)',
+                border: `1px solid ${autoSession.status === 'target_hit' ? 'rgba(46,204,113,0.4)' : autoSession.status === 'bust' ? 'rgba(231,76,60,0.4)' : 'rgba(52,152,219,0.3)'}`,
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
+                  {autoSession.status === 'target_hit' ? '🎯 Target Reached!' : autoSession.status === 'bust' ? '💥 Account Busted' : '🔄 Auto-Flip Running'}
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: autoSession.totalProfit >= 0 ? '#2ecc71' : '#e74c3c' }}>
+                      ${autoSession.currentBalance.toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Balance</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 600 }}>{autoSession.trades}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Trades</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: '#2ecc71' }}>{autoSession.wins}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Wins</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: '#e74c3c' }}>{autoSession.losses}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Losses</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 600 }}>
+                      {autoSession.trades > 0 ? (autoSession.wins / autoSession.trades * 100).toFixed(1) : '—'}%
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Win Rate</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: autoSession.maxDrawdown > 30 ? '#e74c3c' : autoSession.maxDrawdown > 15 ? '#f39c12' : '#2ecc71' }}>
+                      {autoSession.maxDrawdown.toFixed(1)}%
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Max DD</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: autoSession.totalProfit >= 0 ? '#2ecc71' : '#e74c3c' }}>
+                      ${autoSession.totalProfit >= 0 ? '+' : ''}{autoSession.totalProfit.toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total P&L</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+                  Target: ${(autoSession.startBalance * flipMultiplier).toFixed(2)} ({flipMultiplier}x) | Start: ${autoSession.startBalance.toFixed(2)}
+                </div>
+              </div>
+            )}
+
+            {signal && tradeMode === 'manual' ? (
               <div style={{
                 padding: 16, borderRadius: 8, marginTop: 8,
                 background: signal.direction === 'CALL' ? 'rgba(46, 204, 113, 0.15)' : 'rgba(231, 76, 60, 0.15)',
@@ -369,7 +625,16 @@ export default function StrategyPlayground({ watchlist }) {
                   </p>
                 )}
               </div>
-            ) : (
+            ) : signal && tradeMode === 'margin' && !autoRunning ? (
+              <div style={{ padding: 16, borderRadius: 8, marginTop: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
+                  {signal.direction === 'CALL' ? '📈' : '📉'} {signal.direction === 'CALL' ? 'RISE' : 'FALL'} signal detected
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  Reason: {signal.reason} — Press "Start Auto Flip" to begin auto-trading
+                </div>
+              </div>
+            ) : !signal && (
               <div style={{ padding: 16, color: 'var(--text-muted)', fontStyle: 'italic' }}>
                 Waiting for signal... (needs {strategy === 'momentum' ? '5' : '20'} ticks of data)
               </div>
@@ -377,32 +642,34 @@ export default function StrategyPlayground({ watchlist }) {
           </div>
 
           {/* Accuracy Tracker */}
-          <div className="section-block" style={{ marginBottom: 16 }}>
-            <h3 className="section-title">Live Accuracy</h3>
-            <div style={{ display: 'flex', gap: 24, marginTop: 8 }}>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: accuracy.pct > 52 ? '#2ecc71' : accuracy.pct > 50 ? '#f39c12' : '#e74c3c' }}>
-                  {accuracy.pct}%
+          {tradeMode === 'manual' && (
+            <div className="section-block" style={{ marginBottom: 16 }}>
+              <h3 className="section-title">Live Accuracy</h3>
+              <div style={{ display: 'flex', gap: 24, marginTop: 8 }}>
+                <div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: accuracy.pct > 52 ? '#2ecc71' : accuracy.pct > 50 ? '#f39c12' : '#e74c3c' }}>
+                    {accuracy.pct}%
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Win Rate</div>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Win Rate</div>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 600 }}>{accuracy.correct}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Correct</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 600 }}>{accuracy.total}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Total</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 600 }}>{accuracy.total > 0 ? ((accuracy.correct / accuracy.total * 1.92 - 1) * 100).toFixed(1) : '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>ROI %</div>
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 600 }}>{accuracy.correct}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Correct</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 600 }}>{accuracy.total}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Total</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 600 }}>{accuracy.total > 0 ? ((accuracy.correct / accuracy.total * 1.92 - 1) * 100).toFixed(1) : '—'}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>ROI %</div>
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+                Breakeven at 52.08% (92% payout) | {accuracy.pct > 52.08 ? '✅ Profitable' : '❌ Below breakeven'}
               </div>
             </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-              Breakeven at 52.08% (92% payout) | {accuracy.pct > 52.08 ? '✅ Profitable' : '❌ Below breakeven'}
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
