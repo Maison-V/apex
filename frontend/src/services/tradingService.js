@@ -127,6 +127,9 @@ class TradingService {
           if (data.error) return
 
           if (data.msg_type === 'buy') {
+            if (data.buy?.balance_after != null) {
+              this.balances.balance = data.buy.balance_after
+            }
             const contract = {
               id: data.buy?.contract_id,
               transactionId: data.buy?.transaction_id,
@@ -235,6 +238,26 @@ class TradingService {
     })
   }
 
+  async #refreshBalance() {
+    try {
+      const appId = this._appId || '1089'
+      const res = await fetch('https://api.derivws.com/trading/v1/options/accounts', {
+        headers: {
+          'Authorization': `Bearer ${this._pat}`,
+          'Deriv-App-ID': appId,
+        }
+      })
+      if (res.ok) {
+        const json = await res.json()
+        const accts = json.data || []
+        const acct = accts.find(a => a.account_id === this._accountId)
+        if (acct) {
+          this.balances.balance = parseFloat(acct.balance) || 0
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
   async placeTrade({ contract_type, symbol, amount, duration, duration_unit, currency = 'USD' }) {
     if (!this.connected || !this.ws) return null
 
@@ -250,7 +273,8 @@ class TradingService {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         this.listeners.delete(handler)
-        resolve({ contractId, transactionId, status: 'timeout', profit: 0 })
+        this.#refreshBalance()
+        resolve({ contractId, transactionId, status: 'timeout', profit: 0, balanceAfter: this.balances.balance })
       }, 60000)
 
       const handler = (data) => {
@@ -260,9 +284,7 @@ class TradingService {
             if (c.status === 'won' || c.status === 'lost') {
               clearTimeout(timeout)
               this.listeners.delete(handler)
-              if (c.balance_after != null) {
-                this.balances.balance = c.balance_after
-              }
+              this.#refreshBalance()
               resolve({
                 contractId: c.contract_id,
                 transactionId,
@@ -270,7 +292,7 @@ class TradingService {
                 profit: c.profit || 0,
                 buyPrice: c.buy_price,
                 sellPrice: c.sell_price,
-                balanceAfter: c.balance_after,
+                balanceAfter: this.balances.balance,
               })
             }
           }

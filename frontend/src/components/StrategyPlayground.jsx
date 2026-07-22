@@ -114,7 +114,7 @@ export default function StrategyPlayground({ watchlist }) {
   const [durationUnit, setDurationUnit] = useState('t')
   const [amount, setAmount] = useState(10)
   const contractType = 'CALL'
-  const [apiToken, setApiToken] = useState('')
+  const [apiToken, setApiToken] = useState(() => localStorage.getItem('deriv_pat') || '')
   const [tokenSaved, setTokenSaved] = useState(false)
   const [connected, setConnected] = useState(false)
   const [balance, setBalance] = useState(null)
@@ -196,10 +196,13 @@ export default function StrategyPlayground({ watchlist }) {
 
   const handleConnect = () => {
     if (!apiToken.trim()) return
-    tradingService.setToken(apiToken.trim())
-    tradingService.connect()
+    const appId = localStorage.getItem('deriv_app_id') || ''
+    const accountType = localStorage.getItem('deriv_account_type') || 'demo'
+    tradingService.setAppId(appId)
+    tradingService.setPat(apiToken.trim())
+    tradingService.connect(accountType)
     setTokenSaved(true)
-    localStorage.setItem('deriv_api_token', apiToken.trim())
+    localStorage.setItem('deriv_pat', apiToken.trim())
   }
 
   const handleDisconnect = () => {
@@ -207,17 +210,19 @@ export default function StrategyPlayground({ watchlist }) {
     setConnected(false)
     setBalance(null)
     setTokenSaved(false)
-    localStorage.removeItem('deriv_api_token')
   }
 
-  // Restore token on mount
+  // Restore PAT on mount
   useEffect(() => {
-    const saved = localStorage.getItem('deriv_api_token')
+    const saved = localStorage.getItem('deriv_pat')
     if (saved) {
       setApiToken(saved)
       setTokenSaved(true)
-      tradingService.setToken(saved)
-      tradingService.connect()
+      const appId = localStorage.getItem('deriv_app_id') || ''
+      const accountType = localStorage.getItem('deriv_account_type') || 'demo'
+      tradingService.setAppId(appId)
+      tradingService.setPat(saved)
+      tradingService.connect(accountType)
     }
   }, [])
 
@@ -388,16 +393,16 @@ export default function StrategyPlayground({ watchlist }) {
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
         {/* Left Column - Controls */}
         <div style={{ flex: 1, minWidth: 300 }}>
-          {/* API Token Section */}
+          {/* PAT Connection Section */}
           <div className="section-block" style={{ marginBottom: 16 }}>
             <h3 className="section-title">Deriv API Connection</h3>
-            <p className="section-sub">Enter your Deriv API token from <code>deriv.com/account/api-token</code></p>
+            <p className="section-sub">Enter your Deriv PAT from <code>app.deriv.com/account/api-token</code></p>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <input
                 type="password"
                 value={apiToken}
                 onChange={(e) => setApiToken(e.target.value)}
-                placeholder="Enter Deriv API token"
+                placeholder="Enter Deriv PAT"
                 className="strategy-input"
                 disabled={connected}
                 style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
@@ -618,7 +623,7 @@ export default function StrategyPlayground({ watchlist }) {
                 >
                   {pendingTrade ? 'Opening...' : `Trade ${signal.direction === 'CALL' ? 'Rise' : 'Fall'} ($${amount})`}
                 </button>
-                {!connected && <p style={{ color: '#e67e22', fontSize: 11, marginTop: 6 }}>Connect API token above to trade</p>}
+                {!connected && <p style={{ color: '#e67e22', fontSize: 11, marginTop: 6 }}>Connect your PAT above to trade</p>}
                 {lastTradeResult && (
                   <p style={{ color: lastTradeResult.success ? '#2ecc71' : '#e74c3c', fontSize: 12, marginTop: 6 }}>
                     {lastTradeResult.message}
