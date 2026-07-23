@@ -12,6 +12,23 @@ class TradingService {
     this.listeners = new Set()
     this.reconnectTimer = null
     this._intentionalClose = false
+    this._reconnectAttempts = 0
+    this._heartbeatTimer = null
+    this._pendingContractIds = new Set()
+  }
+
+  _startHeartbeat() {
+    this._stopHeartbeat()
+    this._heartbeatTimer = setInterval(() => {
+      try { this.ws?.send(JSON.stringify({ ping: 1 })) } catch {}
+    }, 30000)
+  }
+
+  _stopHeartbeat() {
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer)
+      this._heartbeatTimer = null
+    }
   }
 
   setPat(pat) {
@@ -36,7 +53,7 @@ class TradingService {
 
   _fail(message) {
     clearTimeout(this._connectTimeout)
-    this._intentionalClose = true
+    this._stopHeartbeat()
     this.connected = false
     try { this.ws?.close() } catch {}
     this.ws = null
@@ -112,12 +129,15 @@ class TradingService {
       this._connectTimeout = setTimeout(() => {
         if (!this.connected) {
           this._fail('Connection timed out')
+          this.scheduleReconnect()
         }
-      }, 15000)
+      }, 30000)
 
       this.ws.onopen = () => {
         clearTimeout(this._connectTimeout)
+        this._reconnectAttempts = 0
         this.connected = true
+        this._startHeartbeat()
         this.notify({ type: 'connected', ...this.balances })
       }
 
@@ -156,6 +176,7 @@ class TradingService {
       this.ws.onclose = () => {
         this.connected = false
         this.ws = null
+        this._stopHeartbeat()
         if (!this._intentionalClose) {
           this.notify({ type: 'disconnected' })
           this.scheduleReconnect()
@@ -172,8 +193,10 @@ class TradingService {
 
   disconnect() {
     this._intentionalClose = true
+    this._reconnectAttempts = 0
     clearTimeout(this._connectTimeout)
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this._stopHeartbeat()
     try { this.ws?.close() } catch {}
     this.ws = null
     this.connected = false
@@ -182,12 +205,14 @@ class TradingService {
 
   scheduleReconnect() {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
-    this.notify({ type: 'status', message: 'Reconnecting in 3s...' })
+    const attempt = this._reconnectAttempts++
+    const delay = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 30000)
+    this.notify({ type: 'status', message: `Reconnecting in ${Math.round(delay / 1000)}s...` })
     this.reconnectTimer = setTimeout(() => {
       if (this._pat && !this._intentionalClose) {
         this.connect()
       }
-    }, 3000)
+    }, delay)
   }
 
   async getProposal({ contract_type, symbol, amount, duration, duration_unit, barrier, currency = 'USD' }) {
@@ -270,12 +295,15 @@ class TradingService {
     const contractId = buyResult.id
     const transactionId = buyResult.transactionId
 
+    this._pendingContractIds.add(contractId)
+
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         this.listeners.delete(handler)
+        this._pendingContractIds.delete(contractId)
         this.#refreshBalance()
         resolve({ contractId, transactionId, status: 'timeout', profit: 0, balanceAfter: this.balances.balance })
-      }, 60000)
+      }, 120000)
 
       const handler = (data) => {
         if (data.type === 'contract_update') {
@@ -284,6 +312,7 @@ class TradingService {
             if (c.status === 'won' || c.status === 'lost') {
               clearTimeout(timeout)
               this.listeners.delete(handler)
+              this._pendingContractIds.delete(contractId)
               this.#refreshBalance()
               resolve({
                 contractId: c.contract_id,

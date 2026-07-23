@@ -14,7 +14,24 @@ class DerivService {
     this.listeners = new Set()
     this.symbols = []
     this.reconnectTimer = null
+    this._reconnectAttempts = 0
+    this._heartbeatTimer = null
+    this._intentionalClose = false
     this.config = null
+  }
+
+  _startHeartbeat() {
+    this._stopHeartbeat()
+    this._heartbeatTimer = setInterval(() => {
+      try { this.ws?.send(JSON.stringify({ ping: 1 })) } catch {}
+    }, 30000)
+  }
+
+  _stopHeartbeat() {
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer)
+      this._heartbeatTimer = null
+    }
   }
 
   async init() {
@@ -34,6 +51,7 @@ class DerivService {
     const newSymbols = symbols.filter(s => !this.symbols.includes(s))
     if (!newSymbols.length && this.ws) return
     this.symbols = [...new Set([...this.symbols, ...symbols])]
+    this._intentionalClose = false
     newSymbols.forEach((s) => {
       if (!this.digitHistory[s]) {
         this.digitHistory[s] = []
@@ -49,6 +67,8 @@ class DerivService {
     try {
       this.ws = new WebSocket(this.wsUrl())
       this.ws.onopen = () => {
+        this._reconnectAttempts = 0
+        this._startHeartbeat()
         this.symbols.forEach((s) => {
           this.ws.send(JSON.stringify({ ticks: s }))
         })
@@ -56,6 +76,7 @@ class DerivService {
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
+          if (data.msg_type === 'ping') return
           if (data.tick) {
             const { symbol, quote, epoch, ask, bid } = data.tick
             this.prices[symbol] = {
@@ -84,7 +105,10 @@ class DerivService {
       }
       this.ws.onclose = () => {
         this.ws = null
-        this.scheduleReconnect()
+        this._stopHeartbeat()
+        if (!this._intentionalClose) {
+          this.scheduleReconnect()
+        }
       }
       this.ws.onerror = () => {
         this.ws?.close()
@@ -93,7 +117,10 @@ class DerivService {
   }
 
   disconnect() {
+    this._intentionalClose = true
+    this._reconnectAttempts = 0
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this._stopHeartbeat()
     if (this.ws) {
       this.ws.close()
       this.ws = null
@@ -168,9 +195,13 @@ class DerivService {
 
   scheduleReconnect() {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    const attempt = this._reconnectAttempts++
+    const delay = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 30000)
     this.reconnectTimer = setTimeout(() => {
-      if (this.symbols.length > 0) this.connect(this.symbols)
-    }, 3000)
+      if (this.symbols.length > 0 && !this._intentionalClose) {
+        this.connect(this.symbols)
+      }
+    }, delay)
   }
 }
 
