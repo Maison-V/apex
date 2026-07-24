@@ -21,9 +21,16 @@ import {
 
 const SYNTHETIC_SYMBOLS = [
   'R_75', 'R_100', 'R_150', 'R_200', 'R_250', 'R_300',
+  '1HZ_R_75', '1HZ_R_100', '1HZ_R_150', '1HZ_R_200', '1HZ_R_250', '1HZ_R_300',
   'BOOM300', 'BOOM500', 'BOOM1000',
+  '1HZ_BOOM300', '1HZ_BOOM500', '1HZ_BOOM1000',
   'CRASH300', 'CRASH500', 'CRASH1000',
+  '1HZ_CRASH300', '1HZ_CRASH500', '1HZ_CRASH1000',
 ]
+
+function isOneHz(sym) {
+  return sym.startsWith('1HZ_')
+}
 
 export default function AIDigitTrader({ watchlist }) {
   const [symbol, setSymbol] = useState('R_75')
@@ -182,8 +189,11 @@ export default function AIDigitTrader({ watchlist }) {
       setErrorMsg('Insufficient balance')
       return
     }
+    const isHz = isOneHz(symbol)
+    tradingEngine.config.duration = isHz ? 60 : 1
+    tradingEngine.config.durationUnit = isHz ? 's' : 't'
     tradingEngine.executeTrade(direction)
-  }, [])
+  }, [symbol])
 
   const handleStartBot = useCallback(() => {
     if (!connected || !recommendation || !recommendation.action) return
@@ -192,12 +202,13 @@ export default function AIDigitTrader({ watchlist }) {
     tradingEngine.resetStats()
     tradeLogRef.current = []
     setTradeLog([])
+    const isHz = isOneHz(symbol)
     tradingEngine.start({
       symbol,
       riskPercent: 80,
-      duration: 1,
-      durationUnit: 't',
-      lookback: 5,
+      duration: isHz ? 60 : 1,
+      durationUnit: isHz ? 's' : 't',
+      lookback: isHz ? 3 : 5,
       strategyId: 'consecutive_counter',
     })
   }, [connected, symbol, recommendation])
@@ -322,7 +333,11 @@ export default function AIDigitTrader({ watchlist }) {
       )}
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <select value={symbol} onChange={(e) => setSymbol(e.target.value)}
+        <select value={symbol} onChange={(e) => {
+          const s = e.target.value
+          setSymbol(s)
+          derivService.subscribeSymbol(s)
+        }}
           style={{ padding: '6px 12px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}
         >
           {syntheticSymbols.map(s => <option key={s} value={s}>{s}</option>)}
