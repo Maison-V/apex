@@ -144,7 +144,10 @@ class TradingService {
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          if (data.error) return
+          if (data.error) {
+            this.notify({ type: 'error', message: data.error.message || 'Deriv API error', code: data.error.code, echo_req: data.echo_req })
+            return
+          }
 
           if (data.msg_type === 'buy') {
             if (data.buy?.balance_after != null) {
@@ -222,6 +225,9 @@ class TradingService {
         if (data.type === 'proposal') {
           this.listeners.delete(handler)
           resolve(data.proposal)
+        } else if (data.type === 'error') {
+          this.listeners.delete(handler)
+          resolve(null)
         }
       }
       this.listeners.add(handler)
@@ -252,6 +258,9 @@ class TradingService {
             this.listeners.delete(handler)
             resolve(data)
           }
+        } else if (data.type === 'error') {
+          this.listeners.delete(handler)
+          resolve(null)
         }
       }
       this.listeners.add(handler)

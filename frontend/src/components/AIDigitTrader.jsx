@@ -189,10 +189,50 @@ export default function AIDigitTrader({ watchlist }) {
       setErrorMsg('Insufficient balance')
       return
     }
+    setPendingTrade(true)
+    setErrorMsg(null)
     const isHz = isOneHz(symbol)
-    tradingEngine.config.duration = isHz ? 60 : 1
-    tradingEngine.config.durationUnit = isHz ? 's' : 't'
-    tradingEngine.executeTrade(direction)
+    const stake = Math.max(Math.round(balance * 0.8 / 100 * 100) / 100, 1)
+    if (stake > balance) {
+      setErrorMsg(`Stake $${stake} exceeds balance $${balance}`)
+      setPendingTrade(false)
+      return
+    }
+    try {
+      const result = await tradingService.placeTrade({
+        contract_type: direction,
+        symbol,
+        amount: stake,
+        duration: isHz ? 60 : 1,
+        duration_unit: isHz ? 's' : 't',
+      })
+      if (result) {
+        const profit = result.profit || 0
+        const afterBal = result.balanceAfter || (balance + profit)
+        setBalance(afterBal)
+        const entry = {
+          timestamp: new Date().toISOString(),
+          symbol,
+          direction,
+          stake,
+          entryTick: null,
+          exitTick: null,
+          profit,
+          balanceAfter: afterBal,
+          status: result.status,
+        }
+        setTradeLog(prev => [entry, ...prev])
+        if (result.status === 'won') setWins(w => w + 1)
+        else setLosses(l => l + 1)
+        setTotalTrades(t => t + 1)
+        setTotalProfit(p => p + profit)
+      } else {
+        setErrorMsg('Trade failed — no result from broker')
+      }
+    } catch (err) {
+      setErrorMsg(`Trade error: ${err.message}`)
+    }
+    setPendingTrade(false)
   }, [symbol])
 
   const handleStartBot = useCallback(() => {
