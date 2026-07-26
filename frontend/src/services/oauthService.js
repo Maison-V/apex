@@ -1,9 +1,16 @@
+const DERIV_APP_ID = import.meta.env.VITE_DERIV_APP_ID || '1089'
+const DERIV_OAUTH_URL = 'https://oauth.deriv.com/oauth2/authorize'
+
 class OAuthService {
   constructor() {
     this.token = null
     this.accountInfo = null
     this.listeners = new Set()
     this._checkUrlForToken()
+  }
+
+  get appId() {
+    return DERIV_APP_ID
   }
 
   _checkUrlForToken() {
@@ -24,9 +31,9 @@ class OAuthService {
     return false
   }
 
-  login(appId) {
+  login() {
     const redirectUri = encodeURIComponent(window.location.origin + '/oauth/callback')
-    window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${appId || '1089'}&l=EN&redirect_uri=${redirectUri}`
+    window.location.href = `${DERIV_OAUTH_URL}?app_id=${DERIV_APP_ID}&l=EN&redirect_uri=${redirectUri}`
   }
 
   logout() {

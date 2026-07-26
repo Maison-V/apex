@@ -1,3 +1,5 @@
+const DERIV_APP_ID = import.meta.env.VITE_DERIV_APP_ID || '1089'
+
 class TradingService {
   constructor() {
     this.ws = null
@@ -15,6 +17,7 @@ class TradingService {
     this._reconnectAttempts = 0
     this._heartbeatTimer = null
     this._pendingContractIds = new Set()
+    this._authorizing = false
   }
 
   _startHeartbeat() {
@@ -61,7 +64,7 @@ class TradingService {
   }
 
   async #fetchAccounts() {
-    const appId = this._appId || '1089'
+    const appId = this._appId || DERIV_APP_ID
     const res = await fetch('https://api.derivws.com/trading/v1/options/accounts', {
       headers: {
         'Authorization': `Bearer ${this._pat}`,
@@ -77,7 +80,7 @@ class TradingService {
   }
 
   async #getOTP(accountId) {
-    const appId = this._appId || '1089'
+    const appId = this._appId || DERIV_APP_ID
     const res = await fetch(`https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`, {
       method: 'POST',
       headers: {
@@ -93,6 +96,106 @@ class TradingService {
     }
     const json = await res.json()
     return json.data.url
+  }
+
+  connectWithOAuth(token, accountType = 'demo') {
+    this._pat = token
+    this._accountType = accountType
+    this._intentionalClose = false
+
+    if (this.ws) {
+      this.ws.close()
+      this.ws = null
+    }
+
+    this.notify({ type: 'status', message: 'Authorizing with Deriv...' })
+
+    const wsUrl = 'wss://api.derivws.com/trading/v1/options/ws/public'
+    this.ws = new WebSocket(wsUrl)
+    this._authorizing = true
+
+    this.ws.onopen = () => {
+      this.ws.send(JSON.stringify({ authorize: token }))
+    }
+
+    this.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.error) {
+          this._authorizing = false
+          this._fail(data.error.message || 'Authorization failed')
+          return
+        }
+        if (data.msg_type === 'authorize') {
+          this._authorizing = false
+          const auth = data.authorize
+          this._accountId = auth.loginid
+          this.balances = {
+            balance: parseFloat(auth.balance) || 0,
+            currency: auth.currency || 'USD',
+            loginid: auth.loginid,
+            account_type: auth.account_type,
+            email: auth.email,
+            fullname: auth.fullname,
+            scopes: auth.scopes,
+          }
+          this.connected = true
+          this._reconnectAttempts = 0
+          this._startHeartbeat()
+          this.notify({ type: 'connected', ...this.balances })
+        } else if (data.msg_type === 'buy') {
+          if (data.buy?.balance_after != null) {
+            this.balances.balance = data.buy.balance_after
+          }
+          const contract = {
+            id: data.buy?.contract_id,
+            transactionId: data.buy?.transaction_id,
+            balanceAfter: data.buy?.balance_after,
+            buyPrice: data.buy?.buy_price,
+            longcode: data.buy?.longcode,
+            startTime: data.buy?.start_time,
+          }
+          this.contracts.push(contract)
+          this.notify({ type: 'contract_opened', ...contract })
+        } else if (data.msg_type === 'proposal') {
+          const id = data.proposal?.id
+          if (id) {
+            this.proposals.set(id, data.proposal)
+            this.notify({ type: 'proposal', id, proposal: data.proposal })
+          }
+        } else if (data.msg_type === 'proposal_open_contract') {
+          const contract = data.proposal_open_contract
+          this.notify({ type: 'contract_update', contract })
+        }
+      } catch { /* ignore */ }
+    }
+
+    this.ws.onclose = () => {
+      this.connected = false
+      this.ws = null
+      this._stopHeartbeat()
+      if (!this._intentionalClose && !this._authorizing) {
+        this.notify({ type: 'disconnected' })
+        this.scheduleReconnect()
+      }
+    }
+
+    this.ws.onerror = () => {
+      this.ws?.close()
+    }
+
+    return new Promise((resolve) => {
+      const unsub = this.subscribe((data) => {
+        if (data.type === 'connected') {
+          unsub()
+          resolve(true)
+        } else if (data.type === 'error') {
+          unsub()
+          resolve(false)
+        }
+      })
+      setTimeout(() => { unsub(); resolve(false) }, 15000)
+    })
   }
 
   async connect(accountType) {
