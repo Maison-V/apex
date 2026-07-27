@@ -102,6 +102,7 @@ class TradingService {
     this._pat = token
     this._accountType = accountType
     this._intentionalClose = false
+    this._authorizing = true
 
     if (this.ws) {
       this.ws.close()
@@ -110,91 +111,100 @@ class TradingService {
 
     this.notify({ type: 'status', message: 'Authorizing with Deriv...' })
 
-    const wsUrl = 'wss://api.derivws.com/trading/v1/options/ws/public'
+    const appId = this._appId || DERIV_APP_ID
+    const wsUrl = `wss://ws.binaryws.com/websockets/v3?app_id=${appId}`
     this.ws = new WebSocket(wsUrl)
-    this._authorizing = true
-
-    this.ws.onopen = () => {
-      this.ws.send(JSON.stringify({ authorize: token }))
-    }
-
-    this.ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        if (data.error) {
-          this._authorizing = false
-          this._fail(data.error.message || 'Authorization failed')
-          return
-        }
-        if (data.msg_type === 'authorize') {
-          this._authorizing = false
-          const auth = data.authorize
-          this._accountId = auth.loginid
-          this.balances = {
-            balance: parseFloat(auth.balance) || 0,
-            currency: auth.currency || 'USD',
-            loginid: auth.loginid,
-            account_type: auth.account_type,
-            email: auth.email,
-            fullname: auth.fullname,
-            scopes: auth.scopes,
-          }
-          this.connected = true
-          this._reconnectAttempts = 0
-          this._startHeartbeat()
-          this.notify({ type: 'connected', ...this.balances })
-        } else if (data.msg_type === 'buy') {
-          if (data.buy?.balance_after != null) {
-            this.balances.balance = data.buy.balance_after
-          }
-          const contract = {
-            id: data.buy?.contract_id,
-            transactionId: data.buy?.transaction_id,
-            balanceAfter: data.buy?.balance_after,
-            buyPrice: data.buy?.buy_price,
-            longcode: data.buy?.longcode,
-            startTime: data.buy?.start_time,
-          }
-          this.contracts.push(contract)
-          this.notify({ type: 'contract_opened', ...contract })
-        } else if (data.msg_type === 'proposal') {
-          const id = data.proposal?.id
-          if (id) {
-            this.proposals.set(id, data.proposal)
-            this.notify({ type: 'proposal', id, proposal: data.proposal })
-          }
-        } else if (data.msg_type === 'proposal_open_contract') {
-          const contract = data.proposal_open_contract
-          this.notify({ type: 'contract_update', contract })
-        }
-      } catch { /* ignore */ }
-    }
-
-    this.ws.onclose = () => {
-      this.connected = false
-      this.ws = null
-      this._stopHeartbeat()
-      if (!this._intentionalClose && !this._authorizing) {
-        this.notify({ type: 'disconnected' })
-        this.scheduleReconnect()
-      }
-    }
-
-    this.ws.onerror = () => {
-      this.ws?.close()
-    }
 
     return new Promise((resolve) => {
-      const unsub = this.subscribe((data) => {
-        if (data.type === 'connected') {
-          unsub()
-          resolve(true)
-        } else if (data.type === 'error') {
-          unsub()
-          resolve(false)
-        }
+      const onConnected = (data) => {
+        unsub()
+        resolve(true)
+      }
+      const onError = (d) => {
+        unsub()
+        this._fail(d.message || 'Authorization failed')
+        resolve(false)
+      }
+      const unsub = this.subscribe((d) => {
+        if (d.type === 'connected') onConnected(d)
+        else if (d.type === 'error') onError(d)
       })
-      setTimeout(() => { unsub(); resolve(false) }, 15000)
+      this._connectTimeout = setTimeout(() => {
+        unsub()
+        this._fail('Connection timed out')
+        resolve(false)
+      }, 15000)
+
+      this.ws.onopen = () => {
+        this.ws.send(JSON.stringify({ authorize: token }))
+      }
+
+      this.ws.onclose = () => {
+        this.connected = false
+        this.ws = null
+        this._stopHeartbeat()
+        if (!this._intentionalClose && !this._authorizing) {
+          this.notify({ type: 'disconnected' })
+          this.scheduleReconnect()
+        }
+      }
+
+      this.ws.onerror = () => {
+        this.ws?.close()
+      }
+
+      this.ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.error) {
+            this._authorizing = false
+            this.notify({ type: 'error', message: data.error.message || 'Deriv API error', code: data.error.code, echo_req: data.echo_req })
+            return
+          }
+          if (data.msg_type === 'authorize') {
+            clearTimeout(this._connectTimeout)
+            this._authorizing = false
+            const auth = data.authorize
+            this._accountId = auth.loginid
+            this.balances = {
+              balance: parseFloat(auth.balance) || 0,
+              currency: auth.currency || 'USD',
+              loginid: auth.loginid,
+              account_type: auth.account_type,
+              email: auth.email,
+              fullname: auth.fullname,
+              scopes: auth.scopes,
+            }
+            this.connected = true
+            this._reconnectAttempts = 0
+            this._startHeartbeat()
+            this.notify({ type: 'connected', ...this.balances })
+          } else if (data.msg_type === 'buy') {
+            if (data.buy?.balance_after != null) {
+              this.balances.balance = data.buy.balance_after
+            }
+            const contract = {
+              id: data.buy?.contract_id,
+              transactionId: data.buy?.transaction_id,
+              balanceAfter: data.buy?.balance_after,
+              buyPrice: data.buy?.buy_price,
+              longcode: data.buy?.longcode,
+              startTime: data.buy?.start_time,
+            }
+            this.contracts.push(contract)
+            this.notify({ type: 'contract_opened', ...contract })
+          } else if (data.msg_type === 'proposal') {
+            const id = data.proposal?.id
+            if (id) {
+              this.proposals.set(id, data.proposal)
+              this.notify({ type: 'proposal', id, proposal: data.proposal })
+            }
+          } else if (data.msg_type === 'proposal_open_contract') {
+            const contract = data.proposal_open_contract
+            this.notify({ type: 'contract_update', contract })
+          }
+        } catch { /* ignore */ }
+      }
     })
   }
 
