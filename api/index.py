@@ -159,6 +159,31 @@ async def deriv_config():
     }
 
 
+@app.post("/api/auth/deriv/token")
+async def deriv_oauth_token(body: dict):
+    code = body.get("code")
+    code_verifier = body.get("code_verifier")
+    if not code or not code_verifier:
+        return {"error": "Missing code or code_verifier"}
+    app_id = os.environ.get("DERIV_APP_ID", "1089")
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://auth.deriv.com/oauth2/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": app_id,
+                "code": code,
+                "redirect_uri": body.get("redirect_uri", ""),
+                "code_verifier": code_verifier,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code != 200:
+            return {"error": f"Token exchange failed ({resp.status_code}): {resp.text}"}
+        data = resp.json()
+        return data
+
+
 _VOLATILITY_CACHE = None
 _VOLATILITY_CACHE_TIME = 0
 
