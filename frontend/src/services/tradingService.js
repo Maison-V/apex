@@ -106,14 +106,21 @@ class TradingService {
     this._authorizing = true
 
     if (this.ws) {
-      this.ws.close()
+      const oldWs = this.ws
+      oldWs.onclose = null
+      oldWs.onerror = null
+      oldWs.onmessage = null
+      oldWs.close()
       this.ws = null
     }
 
     this.notify({ type: 'status', message: 'Authorizing with Deriv...' })
 
     const wsUrl = `wss://ws.binaryws.com/websockets/v3?app_id=${WS_APP_ID}`
-    this.ws = new WebSocket(wsUrl)
+    const ws = new WebSocket(wsUrl)
+    this.ws = ws
+    this._wsGen = (this._wsGen || 0) + 1
+    const gen = this._wsGen
 
     return new Promise((resolve) => {
       const onConnected = (data) => {
@@ -126,6 +133,7 @@ class TradingService {
         resolve(false)
       }
       const unsub = this.subscribe((d) => {
+        if (gen !== this._wsGen) return
         if (d.type === 'connected') onConnected(d)
         else if (d.type === 'error') onError(d)
       })
@@ -135,11 +143,12 @@ class TradingService {
         resolve(false)
       }, 20000)
 
-      this.ws.onopen = () => {
-        this.ws.send(JSON.stringify({ authorize: token }))
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ authorize: token }))
       }
 
-      this.ws.onclose = (e) => {
+      ws.onclose = (e) => {
+        if (gen !== this._wsGen) return
         console.warn('[tradingService] WS closed:', e.code, e.reason)
         this.connected = false
         this.ws = null
@@ -155,14 +164,16 @@ class TradingService {
         this._authorizing = false
       }
 
-      this.ws.onerror = (err) => {
+      ws.onerror = (err) => {
+        if (gen !== this._wsGen) return
         console.error('[tradingService] WS error:', err)
         this._authorizing = false
         this.notify({ type: 'error', message: 'WebSocket connection failed' })
-        this.ws?.close()
+        ws.close()
       }
 
-      this.ws.onmessage = (event) => {
+      ws.onmessage = (event) => {
+        if (gen !== this._wsGen) return
         try {
           const data = JSON.parse(event.data)
           if (data.error) {
