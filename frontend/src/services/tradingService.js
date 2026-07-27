@@ -1,5 +1,5 @@
 const DERIV_APP_ID = import.meta.env.VITE_DERIV_APP_ID || '1089'
-const DERIV_WS_APP_ID = import.meta.env.VITE_DERIV_WS_APP_ID || DERIV_APP_ID
+const WS_APP_ID = import.meta.env.VITE_DERIV_WS_APP_ID || '1089'
 
 class TradingService {
   constructor() {
@@ -112,8 +112,7 @@ class TradingService {
 
     this.notify({ type: 'status', message: 'Authorizing with Deriv...' })
 
-    const appId = this._appId || DERIV_APP_ID
-    const wsUrl = `wss://ws.binaryws.com/websockets/v3?app_id=${appId}`
+    const wsUrl = `wss://ws.binaryws.com/websockets/v3?app_id=${WS_APP_ID}`
     this.ws = new WebSocket(wsUrl)
 
     return new Promise((resolve) => {
@@ -132,25 +131,34 @@ class TradingService {
       })
       this._connectTimeout = setTimeout(() => {
         unsub()
-        this._fail('Connection timed out')
+        this._fail('Connection timed out — check Deriv app_id and network')
         resolve(false)
-      }, 15000)
+      }, 20000)
 
       this.ws.onopen = () => {
         this.ws.send(JSON.stringify({ authorize: token }))
       }
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (e) => {
+        console.warn('[tradingService] WS closed:', e.code, e.reason)
         this.connected = false
         this.ws = null
         this._stopHeartbeat()
-        if (!this._intentionalClose && !this._authorizing) {
-          this.notify({ type: 'disconnected' })
-          this.scheduleReconnect()
+        if (!this._intentionalClose) {
+          if (this._authorizing) {
+            this.notify({ type: 'error', message: `WebSocket closed during auth: ${e.reason || 'unknown'}` })
+          } else {
+            this.notify({ type: 'disconnected' })
+            this.scheduleReconnect()
+          }
         }
+        this._authorizing = false
       }
 
-      this.ws.onerror = () => {
+      this.ws.onerror = (err) => {
+        console.error('[tradingService] WS error:', err)
+        this._authorizing = false
+        this.notify({ type: 'error', message: 'WebSocket connection failed' })
         this.ws?.close()
       }
 
@@ -158,6 +166,7 @@ class TradingService {
         try {
           const data = JSON.parse(event.data)
           if (data.error) {
+            console.error('[tradingService] API error:', data.error)
             this._authorizing = false
             this.notify({ type: 'error', message: data.error.message || 'Deriv API error', code: data.error.code, echo_req: data.echo_req })
             return
