@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -395,6 +396,32 @@ async def get_tick(symbol: str):
     if not t:
         raise HTTPException(404, "No tick data for symbol")
     return t
+
+# ─── Deriv OAuth ───
+
+@app.post("/api/auth/deriv/token")
+async def deriv_oauth_token(body: dict):
+    code = body.get("code")
+    code_verifier = body.get("code_verifier")
+    if not code or not code_verifier:
+        raise HTTPException(400, "Missing code or code_verifier")
+    app_id = settings.deriv_app_id or "1089"
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://auth.deriv.com/oauth2/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": app_id,
+                "code": code,
+                "redirect_uri": body.get("redirect_uri", ""),
+                "code_verifier": code_verifier,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(resp.status_code, resp.text)
+        data = resp.json()
+        return data
 
 # ─── Health ───
 

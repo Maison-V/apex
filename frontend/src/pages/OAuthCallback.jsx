@@ -9,22 +9,67 @@ export default function OAuthCallback() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const token = params.get('token1')
+    const code = params.get('code')
+    const state = params.get('state')
+    const error = params.get('error')
 
-    if (!token) {
+    if (error) {
+      setStatus(`Authorization denied: ${error}`)
+      setTimeout(() => navigate('/', { replace: true }), 2000)
+      return
+    }
+
+    if (!code) {
       setStatus('No authorization code found.')
       setTimeout(() => navigate('/', { replace: true }), 1500)
       return
     }
 
-    localStorage.setItem('deriv_oauth_token', token)
-    oauthService.token = token
-    setStatus('Authorized! Connecting to Deriv...')
+    const savedState = sessionStorage.getItem('deriv_oauth_state')
+    if (state && savedState && state !== savedState) {
+      setStatus('Security error: state mismatch.')
+      setTimeout(() => navigate('/', { replace: true }), 2000)
+      return
+    }
+    sessionStorage.removeItem('deriv_oauth_state')
 
-    tradingService.connectWithOAuth(token, 'demo').then((ok) => {
-      setStatus(ok ? 'Connected! Redirecting...' : 'Connection issue. Redirecting...')
-      setTimeout(() => navigate('/', { replace: true }), 800)
+    const codeVerifier = sessionStorage.getItem('deriv_code_verifier')
+    sessionStorage.removeItem('deriv_code_verifier')
+
+    setStatus('Exchanging authorization...')
+
+    fetch('/api/auth/deriv/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        code_verifier: codeVerifier,
+        redirect_uri: window.location.origin + '/oauth/callback',
+      }),
     })
+      .then((res) => {
+        if (!res.ok) return res.text().then((t) => { throw new Error(t) })
+        return res.json()
+      })
+      .then((data) => {
+        const accessToken = data.access_token
+        if (!accessToken) {
+          setStatus('Failed to get access token.')
+          return
+        }
+        localStorage.setItem('deriv_oauth_token', accessToken)
+        oauthService.token = accessToken
+        setStatus('Authorized! Connecting to Deriv...')
+        return tradingService.connectWithOAuth(accessToken, 'demo')
+      })
+      .then((ok) => {
+        setStatus(ok ? 'Connected! Redirecting...' : 'Connection issue. Redirecting...')
+        setTimeout(() => navigate('/', { replace: true }), 800)
+      })
+      .catch((err) => {
+        setStatus(`Error: ${err.message}`)
+        setTimeout(() => navigate('/', { replace: true }), 2000)
+      })
   }, [navigate])
 
   return (
@@ -38,9 +83,6 @@ export default function OAuthCallback() {
           <span style={{ animation: 'pulse 1s ease-in-out infinite' }}>&#9673;</span>
         </div>
         <div>{status}</div>
-        <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
-          {oauthService.isAuthenticated() ? 'Token acquired' : 'No token'}
-        </div>
       </div>
     </div>
   )

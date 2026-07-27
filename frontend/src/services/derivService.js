@@ -59,7 +59,7 @@ class DerivService {
     })
     if (this.ws) {
       newSymbols.forEach((s) => {
-        this.ws.send(JSON.stringify({ ticks: s }))
+        this.ws.send(JSON.stringify({ ticks: s, subscribe: 1 }))
       })
       return
     }
@@ -69,7 +69,7 @@ class DerivService {
         this._reconnectAttempts = 0
         this._startHeartbeat()
         this.symbols.forEach((s) => {
-          this.ws.send(JSON.stringify({ ticks: s }))
+          this.ws.send(JSON.stringify({ ticks: s, subscribe: 1 }))
         })
       }
       this.ws.onmessage = (event) => {
@@ -149,7 +149,7 @@ class DerivService {
     this.tickHistory[sym] = []
     this.digitHistory[sym] = []
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ ticks: sym }))
+      this.ws.send(JSON.stringify({ ticks: sym, subscribe: 1 }))
     }
   }
 
