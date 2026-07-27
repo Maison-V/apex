@@ -1141,6 +1141,7 @@ body {
 .live-dot { background: var(--up); border-radius: 50%; }
 .deriv-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 14px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.5); transition: all 0.2s; }
 .deriv-badge:hover { border-color: var(--accent); color: var(--accent); background: rgba(182, 255, 59, 0.06); }
+.deriv-badge.disabled { opacity: 0.4; cursor: not-allowed; }
 .deriv-badge.connected { color: var(--up); border-color: rgba(158, 255, 72, 0.35); background: rgba(158, 255, 72, 0.07); }
 .deriv-badge.connected .live-dot { background: var(--up); }
 

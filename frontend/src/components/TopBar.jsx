@@ -31,6 +31,10 @@ export default function TopBar({ liveActive, title }) {
   }, [])
 
   const handleDerivLogin = () => {
+    if (!oauthService.isConfigured()) {
+      alert('Deriv OAuth not configured — set VITE_DERIV_APP_ID on Vercel and register the redirect URI in your Deriv app settings:\n\n' + window.location.origin + '/oauth/callback')
+      return
+    }
     oauthService.login()
   }
 
@@ -70,12 +74,12 @@ export default function TopBar({ liveActive, title }) {
           </span>
         ) : (
           <span
-            className="deriv-badge"
+            className={`deriv-badge${!oauthService.isConfigured() ? ' disabled' : ''}`}
             onClick={handleDerivLogin}
-            title="Connect your Deriv account via OAuth"
+            title={oauthService.isConfigured() ? 'Connect your Deriv account via OAuth' : 'Set VITE_DERIV_APP_ID to enable Deriv login'}
             style={{ cursor: 'pointer' }}
           >
-            &#9673; CONNECT DERIV
+            &#9673; {oauthService.isConfigured() ? 'CONNECT DERIV' : 'DERIV NEEDS SETUP'}
           </span>
         )}
         <div className="user-chip">{label}</div>

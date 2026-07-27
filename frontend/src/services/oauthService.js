@@ -1,4 +1,4 @@
-const DERIV_APP_ID = import.meta.env.VITE_DERIV_APP_ID || '1089'
+const DERIV_APP_ID = import.meta.env.VITE_DERIV_APP_ID
 const DERIV_OAUTH_URL = 'https://oauth.deriv.com/oauth2/authorize'
 
 class OAuthService {
@@ -6,11 +6,18 @@ class OAuthService {
     this.token = null
     this.accountInfo = null
     this.listeners = new Set()
+    if (!DERIV_APP_ID) {
+      console.warn('VITE_DERIV_APP_ID not set — Deriv OAuth login will not work. Set it in Vercel env vars.')
+    }
     this._checkUrlForToken()
   }
 
   get appId() {
     return DERIV_APP_ID
+  }
+
+  isConfigured() {
+    return !!DERIV_APP_ID
   }
 
   _checkUrlForToken() {
@@ -32,6 +39,10 @@ class OAuthService {
   }
 
   login() {
+    if (!DERIV_APP_ID) {
+      alert('Deriv OAuth is not configured yet. The site admin needs to set VITE_DERIV_APP_ID.')
+      return
+    }
     const redirectUri = encodeURIComponent(window.location.origin + '/oauth/callback')
     window.location.href = `${DERIV_OAUTH_URL}?app_id=${DERIV_APP_ID}&l=EN&redirect_uri=${redirectUri}`
   }
