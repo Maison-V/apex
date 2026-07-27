@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { derivService } from '../services/derivService'
 import { oauthService } from '../services/oauthService'
 import { tradingService } from '../services/tradingService'
 
@@ -51,7 +52,7 @@ export default function OAuthCallback() {
         if (!res.ok) return res.text().then((t) => { throw new Error(t) })
         return res.json()
       })
-      .then((data) => {
+      .then(async (data) => {
         const accessToken = data.access_token
         if (!accessToken) {
           setStatus('Failed to get access token.')
@@ -60,7 +61,13 @@ export default function OAuthCallback() {
         localStorage.setItem('deriv_oauth_token', accessToken)
         oauthService.token = accessToken
         setStatus('Authorized! Connecting to Deriv...')
-        return tradingService.connectWithOAuth(accessToken, 'demo')
+        const ok = await tradingService.connectWithOAuth(accessToken, 'demo')
+        if (ok) {
+          setStatus('Connecting tick data...')
+          await derivService.init()
+          derivService.connect(['R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000'])
+        }
+        return ok
       })
       .then((ok) => {
         setStatus(ok ? 'Connected! Redirecting...' : 'Connection issue. Redirecting...')

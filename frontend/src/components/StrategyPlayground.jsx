@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { derivService } from '../services/derivService'
+import { oauthService } from '../services/oauthService'
+
 import { tradingService } from '../services/tradingService'
 
 const DURATION_UNITS = [
@@ -114,8 +116,6 @@ export default function StrategyPlayground({ watchlist }) {
   const [durationUnit, setDurationUnit] = useState('t')
   const [amount, setAmount] = useState(10)
   const contractType = 'CALL'
-  const [apiToken, setApiToken] = useState(() => localStorage.getItem('deriv_pat') || '')
-  const [tokenSaved, setTokenSaved] = useState(false)
   const [connected, setConnected] = useState(false)
   const [balance, setBalance] = useState(null)
   const [signal, setSignal] = useState(null)
@@ -214,37 +214,11 @@ export default function StrategyPlayground({ watchlist }) {
     return () => unsub()
   }, [])
 
-  const handleConnect = () => {
-    if (!apiToken.trim()) return
-    const appId = localStorage.getItem('deriv_app_id') || ''
-    const accountType = localStorage.getItem('deriv_account_type') || 'demo'
-    tradingService.setAppId(appId)
-    tradingService.setPat(apiToken.trim())
-    tradingService.connect(accountType)
-    setTokenSaved(true)
-    localStorage.setItem('deriv_pat', apiToken.trim())
-  }
-
   const handleDisconnect = () => {
     tradingService.disconnect()
     setConnected(false)
     setBalance(null)
-    setTokenSaved(false)
   }
-
-  // Restore PAT on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('deriv_pat')
-    if (saved) {
-      setApiToken(saved)
-      setTokenSaved(true)
-      const appId = localStorage.getItem('deriv_app_id') || ''
-      const accountType = localStorage.getItem('deriv_account_type') || 'demo'
-      tradingService.setAppId(appId)
-      tradingService.setPat(saved)
-      tradingService.connect(accountType)
-    }
-  }, [])
 
   const handleTrade = async () => {
     if (pendingTrade || !signal) return
@@ -413,33 +387,33 @@ export default function StrategyPlayground({ watchlist }) {
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
         {/* Left Column - Controls */}
         <div style={{ flex: 1, minWidth: 300 }}>
-          {/* PAT Connection Section */}
+          {/* Connection Status */}
           <div className="section-block" style={{ marginBottom: 16 }}>
-            <h3 className="section-title">Deriv API Connection</h3>
-            <p className="section-sub">Enter your Deriv PAT from <code>app.deriv.com/account/api-token</code></p>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <input
-                type="password"
-                value={apiToken}
-                onChange={(e) => setApiToken(e.target.value)}
-                placeholder="Enter Deriv PAT"
-                className="strategy-input"
-                disabled={connected}
-                style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-              />
-              {!connected ? (
-                <button className="btn btn-primary" onClick={handleConnect} disabled={!apiToken.trim()}>Connect</button>
-              ) : (
-                <button className="btn btn-outline" onClick={handleDisconnect}>Disconnect</button>
-              )}
-            </div>
-            {balance && (
-              <div style={{ marginTop: 8, display: 'flex', gap: 16 }}>
-                <span style={{ color: 'var(--accent)' }}>Balance: {balance.balance} {balance.currency}</span>
-                <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{balance.loginid}</span>
+            <h3 className="section-title">Deriv Connection</h3>
+            {!oauthService.isAuthenticated() ? (
+              <div style={{ padding: 12, background: 'rgba(243,156,18,0.1)', borderRadius: 6, border: '1px solid rgba(243,156,18,0.3)' }}>
+                <p style={{ fontSize: 13, color: '#f39c12', margin: 0 }}>
+                  Click <strong>CONNECT DERIV</strong> in the top bar to link your account via OAuth.
+                </p>
+              </div>
+            ) : connected ? (
+              <div>
+                <p style={{ fontSize: 13, color: '#2ecc71', marginBottom: 8 }}>
+                  ● Connected
+                </p>
+                {balance && (
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    <span style={{ color: 'var(--accent)' }}>Balance: {balance.balance} {balance.currency}</span>
+                    <button className="btn btn-outline" onClick={handleDisconnect} style={{ padding: '2px 10px', fontSize: 11 }}>Disconnect</button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <div className="loader-glyph" style={{ display: 'inline-block', marginRight: 8 }}><span /><span /><span /></div>
+                <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Connecting...</span>
               </div>
             )}
-            {!connected && tokenSaved && <p style={{ color: '#e67e22', fontSize: 12, marginTop: 4 }}>Connecting...</p>}
           </div>
 
           {/* Strategy Controls */}
@@ -563,7 +537,7 @@ export default function StrategyPlayground({ watchlist }) {
                         opacity: !connected ? 0.5 : 1,
                       }}
                     >
-                      {!connected ? 'Connect First' : 'Start Auto Flip'}
+                      {!connected ? 'Connect Deriv First' : 'Start Auto Flip'}
                     </button>
                   ) : (
                     <button
@@ -666,7 +640,7 @@ export default function StrategyPlayground({ watchlist }) {
                 >
                   {pendingTrade ? 'Opening...' : `Trade ${signal.direction === 'CALL' ? 'Rise' : 'Fall'} ($${amount})`}
                 </button>
-                {!connected && <p style={{ color: '#e67e22', fontSize: 11, marginTop: 6 }}>Connect your PAT above to trade</p>}
+                {!connected && <p style={{ color: '#e67e22', fontSize: 11, marginTop: 6 }}>Connect Deriv via the top bar to trade</p>}
                 {lastTradeResult && (
                   <p style={{ color: lastTradeResult.success ? '#2ecc71' : '#e74c3c', fontSize: 12, marginTop: 6 }}>
                     {lastTradeResult.message}

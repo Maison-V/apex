@@ -1,4 +1,5 @@
 const DERIV_APP_ID = import.meta.env.VITE_DERIV_APP_ID || '1089'
+const DERIV_WS_APP_ID = import.meta.env.VITE_DERIV_WS_APP_ID || DERIV_APP_ID
 
 class TradingService {
   constructor() {
