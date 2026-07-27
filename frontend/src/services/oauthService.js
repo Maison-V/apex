@@ -1,4 +1,5 @@
 const DERIV_APP_ID = import.meta.env.VITE_DERIV_APP_ID
+const DERIV_REDIRECT_URI = import.meta.env.VITE_DERIV_REDIRECT_URI || 'https://apex-celestial.vercel.app/oauth/callback'
 const DERIV_OAUTH_URL = 'https://oauth.deriv.com/oauth2/authorize'
 
 class OAuthService {
@@ -43,8 +44,7 @@ class OAuthService {
       alert('Deriv OAuth is not configured yet. The site admin needs to set VITE_DERIV_APP_ID.')
       return
     }
-    const redirectUri = encodeURIComponent(window.location.origin + '/oauth/callback')
-    window.location.href = `${DERIV_OAUTH_URL}?app_id=${DERIV_APP_ID}&l=EN&redirect_uri=${redirectUri}`
+    window.location.href = `${DERIV_OAUTH_URL}?app_id=${DERIV_APP_ID}&l=EN&redirect_uri=${encodeURIComponent(DERIV_REDIRECT_URI)}`
   }
 
   logout() {
