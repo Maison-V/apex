@@ -5,9 +5,10 @@ import { tradingService } from '../services/tradingService'
 import { tradingEngine } from '../services/tradingEngine'
 
 const SYNTHETIC_SYMBOLS = [
-  'R_75', 'R_100', 'R_150', 'R_200', 'R_250', 'R_300',
-  'BOOM300', 'BOOM500', 'BOOM1000',
-  'CRASH300', 'CRASH500', 'CRASH1000',
+  'R_75', 'R_100', 'R_25', 'R_50', 'R_10',
+  '1HZ75V', '1HZ100V', '1HZ10V', '1HZ25V', '1HZ50V',
+  'BOOM500', 'BOOM1000', 'BOOM300N', 'BOOM600', 'BOOM900',
+  'CRASH500', 'CRASH1000', 'CRASH300N', 'CRASH600', 'CRASH900',
 ]
 
 export default function ApexEscapePlan({ watchlist }) {

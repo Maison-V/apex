@@ -23,12 +23,10 @@ function symbolType(sym) {
 }
 
 const FALLBACK_SYNTHETIC = [
-  'R_10', 'R_25', 'R_50', 'R_75', 'R_100', 'R_150', 'R_200', 'R_250', 'R_300',
-  'R_10_1S', 'R_25_1S', 'R_50_1S', 'R_75_1S', 'R_100_1S', 'R_150_1S', 'R_200_1S', 'R_250_1S', 'R_300_1S',
-  'BOOM300', 'BOOM500', 'BOOM1000',
-  'BOOM300_1S', 'BOOM500_1S', 'BOOM1000_1S',
-  'CRASH300', 'CRASH500', 'CRASH1000',
-  'CRASH300_1S', 'CRASH500_1S', 'CRASH1000_1S',
+  'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
+  '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V',
+  'BOOM500', 'BOOM1000', 'BOOM300N', 'BOOM600', 'BOOM900',
+  'CRASH500', 'CRASH1000', 'CRASH300N', 'CRASH600', 'CRASH900',
 ]
 
 export default function SpikeDetector({ watchlist }) {

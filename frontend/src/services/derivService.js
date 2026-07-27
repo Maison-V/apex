@@ -77,6 +77,10 @@ class DerivService {
         try {
           const data = JSON.parse(event.data)
           if (data.msg_type === 'ping') return
+          if (data.error) {
+            console.warn('Deriv WS error:', data.error?.message || data.error?.code, 'for req:', data.echo_req)
+            return
+          }
           if (data.tick) {
             const { symbol, quote, epoch, ask, bid } = data.tick
             this.prices[symbol] = {
