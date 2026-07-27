@@ -1,8 +1,7 @@
 function lastDigit(price) {
-  const s = typeof price === 'number' ? Math.abs(price).toFixed(4) : String(price)
-  const trimmed = s.replace(/[^0-9]/g, '')
-  if (!trimmed) return 0
-  return parseInt(trimmed.slice(-1), 10)
+  const s = String(price).replace(/[^0-9]/g, '')
+  if (!s) return 0
+  return parseInt(s.slice(-1), 10)
 }
 
 class DerivService {
