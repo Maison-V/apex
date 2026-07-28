@@ -45,9 +45,11 @@ export default function SignUp() {
     }
 
     if (data?.session) {
+      // Signed in immediately (email confirmation disabled) — ProtectedRoute will
+      // show the "awaiting approval" screen until the CEO approves this account.
       navigate('/', { replace: true })
     } else {
-      setNotice('Account created. Check your email to confirm before signing in.')
+      setNotice('Account created. Check your email to confirm your address, then wait for the CEO to approve access before signing in.')
     }
   }
 
@@ -58,7 +60,7 @@ export default function SignUp() {
         <div className="auth-header">
           <BrandMark />
           <h1>Create your account</h1>
-          <p>Register to unlock the market intelligence dashboard.</p>
+          <p>Register to request access. A CEO approval is required before you can sign in.</p>
         </div>
 
         {error && <div className="form-error">{error}</div>}

@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './routes/ProtectedRoute'
+import CeoRoute from './routes/CeoRoute'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import Dashboard from './pages/Dashboard'
 import OAuthCallback from './pages/OAuthCallback'
+import AdminDashboard from './pages/AdminDashboard'
 
 export default function App() {
   return (
@@ -14,6 +16,16 @@ export default function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/oauth/callback" element={<OAuthCallback />} />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <CeoRoute>
+                  <AdminDashboard />
+                </CeoRoute>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/"
             element={

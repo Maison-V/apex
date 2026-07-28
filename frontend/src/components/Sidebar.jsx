@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import BrandMark from './BrandMark'
 import { useAuth } from '../context/AuthContext'
 
@@ -12,7 +13,7 @@ const NAV = [
 ]
 
 export default function Sidebar({ currentView, onViewChange }) {
-  const { signOut } = useAuth()
+  const { signOut, isCeo } = useAuth()
   let lastSection = ''
 
   return (
@@ -36,6 +37,15 @@ export default function Sidebar({ currentView, onViewChange }) {
           </div>
         )
       })}
+
+      {isCeo && (
+        <div>
+          <div className="nav-section-label">CEO</div>
+          <Link to="/admin">
+            <button type="button" className="nav-item">Access control</button>
+          </Link>
+        </div>
+      )}
 
       <div className="sidebar-footer">
         <button className="signout-btn" onClick={signOut} type="button">
