@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -435,6 +436,116 @@ async def health():
         "sources": ["yfinance", "fastforex", "scraper"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+# ─── CEO signup-approval flow (mirrors api/index.py for local dev) ───
+import hashlib
+import hmac
+import time
+from fastapi import Request
+from fastapi.responses import RedirectResponse
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM = os.environ.get("RESEND_FROM", "APEX <onboarding@resend.dev>")
+CEO_EMAIL = os.environ.get("CEO_EMAIL", "")
+SIGNUP_WEBHOOK_SECRET = os.environ.get("SIGNUP_WEBHOOK_SECRET", "")
+SIGNUP_ACTION_SECRET = os.environ.get("SIGNUP_ACTION_SECRET", "")
+ACTION_LINK_MAX_AGE_SECONDS = 14 * 24 * 3600
+
+
+def _sign_action(profile_id: str, action: str, ts: int) -> str:
+    msg = f"{profile_id}:{action}:{ts}".encode()
+    return hmac.new(SIGNUP_ACTION_SECRET.encode(), msg, hashlib.sha256).hexdigest()
+
+
+def _verify_action(profile_id: str, action: str, ts: int, sig: str) -> bool:
+    if not SIGNUP_ACTION_SECRET:
+        return False
+    expected = _sign_action(profile_id, action, ts)
+    if not hmac.compare_digest(expected, sig):
+        return False
+    return time.time() - ts <= ACTION_LINK_MAX_AGE_SECONDS
+
+
+async def _send_email(to_email: str, subject: str, html: str) -> bool:
+    if not RESEND_API_KEY or not to_email:
+        print("[notify-signup] RESEND_API_KEY or CEO_EMAIL not configured; skipping send")
+        return False
+    async with httpx.AsyncClient(timeout=10) as c:
+        r = await c.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+            json={"from": RESEND_FROM, "to": [to_email], "subject": subject, "html": html},
+        )
+        return r.status_code < 300
+
+
+@app.post("/api/notify-signup")
+async def notify_signup(request: Request):
+    if not SIGNUP_WEBHOOK_SECRET or request.headers.get("x-webhook-secret") != SIGNUP_WEBHOOK_SECRET:
+        raise HTTPException(403, "Forbidden")
+    payload = await request.json()
+    record = payload.get("record", payload)
+    profile_id = record.get("id")
+    email = record.get("email", "")
+    full_name = (record.get("full_name") or "").strip() or "(no name given)"
+    if not profile_id:
+        raise HTTPException(400, "Missing profile id")
+
+    base_url = str(request.base_url).rstrip("/")
+    ts = int(time.time())
+    approve_url = f"{base_url}/api/admin-action?id={profile_id}&action=approved&ts={ts}&sig={_sign_action(profile_id, 'approved', ts)}"
+    reject_url = f"{base_url}/api/admin-action?id={profile_id}&action=rejected&ts={ts}&sig={_sign_action(profile_id, 'rejected', ts)}"
+    dashboard_url = f"{base_url}/admin"
+    html = f"""
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto;">
+      <h2 style="margin-bottom:4px;">New APEX account request</h2>
+      <p style="color:#555;">Someone has requested access to APEX. Only you can approve it.</p>
+      <table style="width:100%; margin: 16px 0; border-collapse: collapse;">
+        <tr><td style="padding:4px 0; color:#888;">Name</td><td style="padding:4px 0; font-weight:600;">{full_name}</td></tr>
+        <tr><td style="padding:4px 0; color:#888;">Email</td><td style="padding:4px 0; font-weight:600;">{email}</td></tr>
+      </table>
+      <div style="margin: 20px 0;">
+        <a href="{approve_url}" style="background:#00e5ff; color:#000; padding:12px 22px; text-decoration:none; font-weight:700; border-radius:4px; margin-right:10px;">Approve</a>
+        <a href="{reject_url}" style="background:#ff3d00; color:#fff; padding:12px 22px; text-decoration:none; font-weight:700; border-radius:4px;">Reject</a>
+      </div>
+      <p style="color:#888; font-size:13px;">Or review every account, including who's currently online, in the <a href="{dashboard_url}">admin dashboard</a>.</p>
+      <p style="color:#bbb; font-size:12px;">This link expires in 14 days.</p>
+    </div>
+    """
+    await _send_email(CEO_EMAIL, f"APEX access request — {full_name}", html)
+    return {"ok": True}
+
+
+@app.get("/api/admin-action")
+async def admin_action(id: str, action: str, ts: int, sig: str):
+    if action not in ("approved", "rejected"):
+        raise HTTPException(400, "Invalid action")
+    if not _verify_action(id, action, ts, sig):
+        raise HTTPException(403, "This link is invalid or has expired. Please use the admin dashboard instead.")
+    if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY):
+        raise HTTPException(500, "Server is not configured for this action yet")
+
+    update_body = {"status": action}
+    if action == "approved":
+        update_body["approved_at"] = datetime.now(timezone.utc).isoformat()
+
+    async with httpx.AsyncClient(timeout=10) as c:
+        r = await c.patch(
+            f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{id}&role=neq.ceo",
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            },
+            json=update_body,
+        )
+
+    ok = r.status_code < 300
+    return RedirectResponse(url=f"/admin?result={'ok' if ok else 'error'}&action={action}")
+
 
 frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
