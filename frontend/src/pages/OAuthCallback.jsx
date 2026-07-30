@@ -39,14 +39,13 @@ export default function OAuthCallback() {
 
     setStatus('Exchanging authorization...')
 
+    const body = { code, redirect_uri: window.location.origin + '/oauth/callback' }
+    if (codeVerifier) body.code_verifier = codeVerifier
+
     fetch('/api/auth/deriv/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code,
-        code_verifier: codeVerifier,
-        redirect_uri: window.location.origin + '/oauth/callback',
-      }),
+      body: JSON.stringify(body),
     })
       .then((res) => {
         if (!res.ok) return res.text().then((t) => { throw new Error(t) })
