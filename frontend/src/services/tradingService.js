@@ -19,6 +19,15 @@ class TradingService {
     this._heartbeatTimer = null
     this._pendingContractIds = new Set()
     this._authorizing = false
+    this._isOAuth = false
+  }
+
+  _reset() {
+    this.ws = null
+    this._accountId = null
+    this.connected = false
+    this._authorizing = false
+    this._stopHeartbeat()
   }
 
   _startHeartbeat() {
@@ -103,6 +112,7 @@ class TradingService {
     this._pat = token
     this._accountType = accountType
     this._intentionalClose = false
+    this._isOAuth = true
     this._authorizing = true
 
     if (this.ws) {
@@ -330,6 +340,7 @@ class TradingService {
 
   disconnect() {
     this._intentionalClose = true
+    this._isOAuth = false
     this._reconnectAttempts = 0
     clearTimeout(this._connectTimeout)
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
@@ -347,7 +358,11 @@ class TradingService {
     this.notify({ type: 'status', message: `Reconnecting in ${Math.round(delay / 1000)}s...` })
     this.reconnectTimer = setTimeout(() => {
       if (this._pat && !this._intentionalClose) {
-        this.connect()
+        if (this._isOAuth) {
+          this.connectWithOAuth(this._pat, this._accountType)
+        } else {
+          this.connect()
+        }
       }
     }, delay)
   }

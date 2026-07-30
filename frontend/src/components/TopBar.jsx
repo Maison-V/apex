@@ -10,15 +10,6 @@ export default function TopBar({ liveActive, title }) {
   const label = user?.user_metadata?.full_name || user?.email || 'Member'
 
   useEffect(() => {
-    if (oauthService.isAuthenticated() && tradingService.isConnected()) {
-      setDerivConnected(true)
-      const bal = tradingService.getBalance()
-      setDerivBalance(bal)
-    } else {
-      setDerivConnected(false)
-      setDerivBalance(null)
-    }
-
     const unsub = tradingService.subscribe((data) => {
       if (data.type === 'connected') {
         setDerivConnected(true)
@@ -27,6 +18,13 @@ export default function TopBar({ liveActive, title }) {
         setDerivConnected(false)
       }
     })
+
+    if (oauthService.isAuthenticated() && tradingService.isConnected()) {
+      setDerivConnected(true)
+      const bal = tradingService.getBalance()
+      setDerivBalance(bal)
+    }
+
     return () => unsub()
   }, [])
 
