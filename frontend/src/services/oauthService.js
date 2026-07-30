@@ -1,6 +1,6 @@
 const DERIV_APP_ID = import.meta.env.VITE_DERIV_APP_ID
 const DERIV_REDIRECT_URI = import.meta.env.VITE_DERIV_REDIRECT_URI || 'https://apex-celestial.vercel.app/oauth/callback'
-const DERIV_AUTH_URL = 'https://oauth.deriv.com/oauth2/authorize'
+const DERIV_AUTH_URL = 'https://auth.deriv.com/oauth2/auth'
 
 function base64UrlEncode(buffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))

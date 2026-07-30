@@ -60,8 +60,12 @@ export default function OAuthCallback() {
         }
         localStorage.setItem('deriv_oauth_token', accessToken)
         oauthService.token = accessToken
+        oauthService.setAccountInfo({ loginid: data.loginid, email: data.email, scopes: data.scopes, account_type: 'demo' })
         setStatus('Authorized! Connecting to Deriv...')
-        const ok = await tradingService.connectWithOAuth(accessToken, 'demo')
+        const cfgRes = await fetch('/api/deriv/config')
+        const cfg = await cfgRes.json()
+        const wsToken = cfg.token || accessToken
+        const ok = await tradingService.connectWithOAuth(wsToken, 'demo')
         if (ok) {
           setStatus('Connecting tick data...')
           await derivService.init()

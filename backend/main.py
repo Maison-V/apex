@@ -409,7 +409,7 @@ async def deriv_oauth_token(body: dict):
     app_id = settings.deriv_app_id or "1089"
     async with httpx.AsyncClient() as client:
         resp = await client.post(
-            "https://oauth.deriv.com/oauth2/token",
+            "https://auth.deriv.com/oauth2/token",
             data={
                 "grant_type": "authorization_code",
                 "client_id": app_id,
