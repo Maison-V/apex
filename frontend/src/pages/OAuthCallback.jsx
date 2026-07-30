@@ -62,20 +62,27 @@ export default function OAuthCallback() {
         oauthService.token = accessToken
         oauthService.setAccountInfo({ loginid: data.loginid, email: data.email, scopes: data.scopes, account_type: 'demo' })
         setStatus('Authorized! Connecting to Deriv...')
-        const cfgRes = await fetch('/api/deriv/config')
-        const cfg = await cfgRes.json()
-        const wsToken = cfg.token || accessToken
-        const ok = await tradingService.connectWithOAuth(wsToken, 'demo')
+        tradingService.setPat(accessToken)
+        return new Promise((resolve) => {
+          const unsub = tradingService.subscribe((d) => {
+            if (d.type === 'connected') { unsub(); resolve(true) }
+            else if (d.type === 'error') { unsub(); resolve(false) }
+          })
+          const guard = setTimeout(() => { unsub(); resolve(false) }, 25000)
+          tradingService.connect('demo')
+        })
+      })
+      .then(async (ok) => {
         if (ok) {
           setStatus('Connecting tick data...')
           await derivService.init()
           derivService.connect(['R_75', 'R_100', 'BOOM500', 'BOOM1000', 'CRASH500', 'CRASH1000'])
+          setStatus('Connected! Redirecting...')
+          setTimeout(() => navigate('/', { replace: true }), 500)
+        } else {
+          setStatus('Connection issue. Redirecting...')
+          setTimeout(() => navigate('/', { replace: true }), 800)
         }
-        return ok
-      })
-      .then((ok) => {
-        setStatus(ok ? 'Connected! Redirecting...' : 'Connection issue. Redirecting...')
-        setTimeout(() => navigate('/', { replace: true }), 800)
       })
       .catch((err) => {
         setStatus(`Error: ${err.message}`)
